@@ -926,9 +926,10 @@ static void test_settings_layout(void)
 		{ offsetof(settings_t, t3_kill), 397 },
 		{ offsetof(settings_t, satellite_index), 398 },
 		{ offsetof(settings_t, cw_eff_wpm), 399 },	// was reserved10[1]
+		{ offsetof(settings_t, cw_lead), 406 },		// was reserved11[0]
 		{ offsetof(settings_t, sig_dmr), 400 },
 		{ offsetof(settings_t, sig_fm), 403 },
-		{ offsetof(settings_t, reserved11), 406 },
+		{ offsetof(settings_t, reserved11), 407 },
 		{ offsetof(settings_t, aes_mi_res), 408 },
 	};
 	CHECK(sizeof(settings_t) == 412);
