@@ -985,6 +985,16 @@ run-rxchain: dmrRxChainTest dmrDataChainTest hrc7000RxChainTest
 	./dmrDataChainTest
 .PHONY: run-rxchain
 
+# The Morse timing (core/radio/morse.c): punctuation, prosigns, Farnsworth spacing, a longer text buffer
+morseTest: morseTest.c $(CORE)/radio/morse.c $(CORE)/radio/morse.h
+	$(CC) $(CFLAGS) -Wshadow -DMORSE_TEXT_MAX=160 -o $@ morseTest.c $(CORE)/radio/morse.c
+TESTS   += morseTest
+
+run: run-morse
+run-morse: morseTest
+	./morseTest
+.PHONY: run-morse
+
 # The MMDVM protocol and the simplex hotspot engine (core/hotspot), against a fake DMR modem and radio core, and the
 # host link's rule for leaving hotspot mode (core/hostlink/hostlink_policy.c)
 MMDVM   := mmdvmTest.c $(CORE)/hotspot/mmdvm.c $(CORE)/hotspot/hotspot.c $(CORE)/hotspot/hotspotUplink.c \
