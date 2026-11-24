@@ -73,7 +73,7 @@ idle, then back to the channel. Not yet checked on a radio: test into a dummy lo
 |---|---|
 | Open | Messages > Send CW (the list's last row) opens `cw-compose`: the canned CW messages, then Write... |
 | Canned | `CQ CQ CQ DE {CALL} {CALL} K`, `QRZ? DE {CALL} K`, `TU 73 DE {CALL} <SK>`, `DE {CALL}`. On air text: never translated |
-| Write | The message editor (`message-text`, up to 143 characters); OK there sends it as CW |
+| Write | The message editor (`message-text`, up to 143 characters) in capitals only: the letter keys skip lower case and **#** goes between ABC and 123 (Morse has no case). OK there sends it as CW |
 | Send | OK hands the text to the radio core (`radio_req_cw_send`) and opens `cw-send`: the text, "Sending CW...", then the outcome. Back there stops a message still keying |
 | Settings | Settings > CW, between My radio and Signaling tones (no digit key, so the digit keys' groups keep theirs): Speed 5..40 wpm (`cw_wpm`, 0 = 20), Farnsworth Off or 5..18 wpm (`cw_eff_wpm`, CW messages only; the CW IDs keep standard spacing), Tone 400..1000 Hz (`cw_tone_hz`, 0 = 800) |
 

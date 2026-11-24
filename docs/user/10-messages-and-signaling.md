@@ -96,7 +96,8 @@ radio hears it. Only on radios built with `CONFIG_CW_SEND` ([which radios](../fe
 
 1. Pick a canned message or **Write...**. The canned messages are `CQ CQ CQ DE {CALL} {CALL} K`, `QRZ? DE {CALL} K`,
    `TU 73 DE {CALL} <SK>` and `DE {CALL}`. `{CALL}` is your callsign, taken from the radio name (**Settings > My
-   radio**). A canned message is dimmed when the radio name isn't a callsign.
+   radio**). A canned message is dimmed when the radio name isn't a callsign. **Write...** types capitals only: Morse
+   has no case, so the letter keys skip lower case and **#** goes between ABC and 123.
 2. Press **OK**. The radio keys the message at once and shows **Sending CW...**, then how it ended.
 3. **PTT** or **Back** stops it at once. The PTT press only stops it: press PTT again to talk.
 
