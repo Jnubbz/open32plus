@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 The RadioFoundry Authors
+# Copyright (c) 2026 Josh Noble (KN0BLE)
+# The open32plus web installer on GitHub Pages (installer/README.md): the page, the web flasher modules it uses and the
+# newest release's DM-32 image, rebuilt when any of them changes or a release is published. Pages must be set to
+# "GitHub Actions" in the repository's settings (Settings > Pages > Source).
+name: Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - installer/**
+      - site/static/js/**
+      - site/rfoundrysite/**
+      - tools/installer_build.py
+      - tools/hrc7000_codec.py
+      - tools/rfoundry/**
+      - boards/**
+      - .github/workflows/installer.yml
+  release:
+    types: [published]
+  # a release the Release workflow publishes with its own token starts no release event: its end does
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      # the newest release that isn't a draft or a pre-release: its DM-32 image and manifest. None yet is fine: the page
+      # then installs only a file the user picks
+      - name: The newest release's DM-32 files
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build/release
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 1 \
+                --json tagName --jq '.[0].tagName // ""')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ -n "$tag" ]; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir build/release --pattern 'rfoundry-dm32-*'
+            ls -l build/release
+          else
+            echo "no release yet"
+          fi
+      - name: Build the page
+        run: |
+          python3 tools/installer_build.py --self-test
+          python3 tools/installer_build.py --out build/installer --commit "$GITHUB_SHA" \
+            ${{ steps.rel.outputs.tag != '' && '--firmware build/release' || '' }}
+      - name: Test it
+        run: node --test installer/test/installer.test.mjs
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9   # v5.0.0
+        with:
+          path: build/installer
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346   # v5.0.1
