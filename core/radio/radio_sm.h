@@ -25,7 +25,7 @@
 #include "radio/radio_trunk.h"	// not under roaming: trunking builds without it
 #endif
 
-#define RADIO_SM_CW		(CONFIG_HOTSPOT || CONFIG_SFR_CWID)	// the CW keyer (radio_sm.c)
+#define RADIO_SM_CW		(CONFIG_HOTSPOT || CONFIG_SFR_CWID || CONFIG_CW_SEND)	// the CW keyer (radio_sm.c)
 #define RADIO_POLL_MS		25	// status poll and squelch period
 #define RADIO_RETUNE_SETTLE_MS	400	// RREQ_RETUNE: tune once the reference trim has held this long
 #define RADIO_TICK_MS		10	// DMR call stack poll (radio_sm_tick)
@@ -199,6 +199,8 @@ typedef enum {
 	RREQ_AIR_BENCH,		// the air interface bench (CONFIG_AIR_RAW): arg 1 take the modem, 0 give it back
 	RREQ_AIR_TX,		// ... arg 1 key (arg2: the longest time in ms), 0 unkey
 	RREQ_NXDN_SET,		// radio_task.c: the pending NXDN settings were copied (radio_nxdn_set_settings); applied here
+	RREQ_CW_SEND,		// key the CW message handed over (radio_cwmsg_put, CONFIG_CW_SEND)
+	RREQ_CW_STOP,		// stop the CW message being keyed
 	// New request types go above
 
 	RREQ_COUNT		// KEEP LAST: sizes req_flags[] (radio_sm.c)
@@ -433,6 +435,17 @@ typedef struct {
 	bool reload_pending;		// RREQ_RELOAD came while busy
 	bool power_off_req;		// RREQ_POWER_OFF seen
 	bool power_off_busy;		// still sending what has to go out before the supply drops
+#if RADIO_SM_CW
+	// The CW keyer: the CW IDs (hotspot, SFR repeater) and CW messages (CONFIG_CW_SEND)
+	uint8_t cw_phase;		// CW_* in radio_sm.c, 0 = not keying
+	morse_t cw;
+	uint32_t cw_ms;			// start of the current phase
+	uint32_t cw_start_ms;		// carrier up
+	uint16_t cw_tone_hz;
+	bool cw_key;			// the tone keyed now
+	bool cw_sfr;			// the SFR repeater's ID (CONFIG_SFR_CWID), not the hotspot's
+	bool cw_msg;			// a CW message (CONFIG_CW_SEND), not an ID
+#endif
 #if CONFIG_DMR
 	uint8_t dmr_wake_admits;	// the stack's wake_admits at the last tick (the permit tone for a short press)
 	uint8_t dmr_permit_seq;		// the stack's permit_seq at the last tick (the permit tone before keying)
@@ -491,15 +504,6 @@ typedef struct {
 	uint8_t hs_rf_level;		// hotspot: the host's RF level, RADIO_HS_RF_OWN = the radio's own power
 	bool hs_power_due;		// hotspot: hs_power came while the modem transmitted; keyed again at its end
 	bool hs_carrier;		// hotspot: the receiver hears a carrier
-#if RADIO_SM_CW
-	uint8_t cw_phase;		// a CW ID: CW_* in radio_sm.c, 0 = not keying
-	morse_t cw;
-	uint32_t cw_ms;			// start of the current phase
-	uint32_t cw_start_ms;		// carrier up
-	uint16_t cw_tone_hz;
-	bool cw_key;			// the tone keyed now
-	bool cw_sfr;			// the SFR repeater's ID (CONFIG_SFR_CWID), not the hotspot's
-#endif
 #if CONFIG_SFR_CWID
 	radio_cwid_t cwid;		// the SFR repeater's ID schedule (the counts are in view.dmr)
 #endif

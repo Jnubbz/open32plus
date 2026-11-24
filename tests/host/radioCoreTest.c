@@ -19,6 +19,7 @@
 #include "dmr/ambe/ambeVoice.h"
 #include "sim/dmr_sim_modem.h"
 #include "radio/radio_hotspot.h"
+#include "radio/radio_cwmsg.h"
 #include "hotspot/hotspot.h"
 #include "hotspot/mmdvm.h"
 #include "settings/settings.h"
@@ -723,7 +724,8 @@ bool codeplug_set_dmr_id(uint32_t id)
 	return true;
 }
 void codeplug_boot_text(char line1[CODEPLUG_NAME_LEN + 1], char line2[CODEPLUG_NAME_LEN + 1]) { line1[0] = line2[0] = 0; }
-void codeplug_radio_name(char out[CODEPLUG_NAME_LEN + 1]) { out[0] = 0; }
+static char fake_radio_name[CODEPLUG_NAME_LEN + 1];	// the codeplug's radio name ("" = none)
+void codeplug_radio_name(char out[CODEPLUG_NAME_LEN + 1]) { memcpy(out, fake_radio_name, sizeof(fake_radio_name)); }
 #if CONFIG_APRS_AFSK
 // APRS (radioCoreTestAprs): no APRS channel in the codeplug
 bool codeplug_aprs(uint8_t n, codeplug_aprs_t *out) { memset(out, 0, sizeof(*out)); return false; }
@@ -4012,6 +4014,194 @@ static void test_hotspot_cwid(void)
 	CHECK(hw_mode == RADIO_MODE_DMR && sm.view.dmr.active);
 }
 
+#if CONFIG_CW_SEND
+// ---- CW messages (docs/spec/morse.md 5): keyed from idle on the FM channel's TX frequency, bandwidth, power and TX
+// subtone after a 150 ms lead, then back to the channel; PTT, a stop or a retune cut it; refused before any carrier
+// when the channel isn't FM, the radio isn't idle, may not transmit, or the message outlasts the time-out ----
+
+static void cw_send(const char *text)
+{
+	CHECK(radio_cwmsg_put(text));
+	req(RREQ_CW_SEND, 0);
+}
+
+static cwmsg_result_t cw_last(void)
+{
+	radio_cwmsg_view_t v;
+	radio_cwmsg_get(&v);
+	return (cwmsg_result_t)v.last;
+}
+
+static void test_cw_message(void)
+{
+	setup_codeplug();
+	start();
+	run(50);
+	radio_cwmsg_view_t v0, v;
+	radio_cwmsg_get(&v0);
+	memset(&tone, 0, sizeof(tone));
+	int tx0 = hw.tx_calls, off0 = hw.tx_off_calls;
+	uint32_t t0 = now;
+
+	// "ab" keyed as "AB" at the default 20 wpm on Simplex: A .- (5 units), the character gap (3), B -... (9): 17 units,
+	// 1020 ms after the 150 ms lead; key down 10 units, 600 ms; carrier down after the 150 ms tail
+	cw_send("ab");
+	CHECK(sm.view.state == RS_TX && sm.view.cw_tx && sm.view.tx_auto && hw.led[LED_RED] && !hw.audio);
+	CHECK(hw.tx_calls == tx0 + 1 && hw.tx_hz == 146520000 && hw.tx_tone.type == TONE_NONE && tone.hz == 800);
+	radio_cwmsg_get(&v);
+	CHECK(v.active && !radio_cwmsg_put("again"));	// one message at a time
+	run(1500);
+	CHECK(tone.changes == 12);		// six elements
+	CHECK(tone.first_down_ms >= t0 + 150 && tone.first_down_ms <= t0 + 160);
+	CHECK(tone.last_up_ms - tone.first_down_ms >= 1010 && tone.last_up_ms - tone.first_down_ms <= 1030);
+	CHECK(tone.down_ms >= 590 && tone.down_ms <= 610);
+	radio_cwmsg_get(&v);
+	CHECK(!v.active && v.sent == v0.sent + 1 && v.last == CWMSG_SENT && v.last_ms >= 1310 && v.last_ms <= 1340);
+	CHECK(sm.view.state == RS_IDLE && !sm.view.cw_tx && !sm.cw_msg && sm.cw_phase == 0 && tone.hz == 0);
+	CHECK(hw.tx_off_calls == off0 + 1 && !hw.led[LED_RED] && hw.rx_hz == 146520000);
+
+	// PTT cuts it: carrier off at once, and the press doesn't key the microphone. The next press does
+	cw_send("PARIS PARIS");
+	run(500);
+	CHECK(sm.view.cw_tx && tone.hz == 800);
+	tx0 = hw.tx_calls;
+	off0 = hw.tx_off_calls;
+	req(RREQ_PTT, 1);
+	CHECK(sm.view.state == RS_IDLE && !sm.view.cw_tx && tone.hz == 0 && hw.tx_off_calls == off0 + 1 &&
+	      hw.tx_calls == tx0);
+	CHECK(cw_last() == CWMSG_CUT);
+	req(RREQ_PTT, 0);
+	CHECK(sm.view.state == RS_IDLE && hw.tx_off_calls == off0 + 1);
+	req(RREQ_PTT, 1);
+	CHECK(sm.view.state == RS_TX && !sm.view.cw_tx && hw.tx_calls == tx0 + 1);
+	req(RREQ_PTT, 0);
+	run(50);
+
+	// RREQ_CW_STOP cuts it too; so does a channel change, which then happens
+	cw_send("PARIS");
+	run(300);
+	req(RREQ_CW_STOP, 0);
+	CHECK(sm.view.state == RS_IDLE && tone.hz == 0 && cw_last() == CWMSG_CUT);
+	cw_send("PARIS");
+	run(300);
+	req(RREQ_CH_STEP, 1);
+	CHECK(sm.view.state == RS_IDLE && tone.hz == 0 && cw_last() == CWMSG_CUT && sm.view.channel_number == 2);
+
+	// Refused before any carrier. Weather is receive only
+	tx0 = hw.tx_calls;
+	cw_send("E");
+	CHECK(cw_last() == CWMSG_NO_TX && hw.tx_calls == tx0 && sm.view.state == RS_IDLE);
+	req(RREQ_CH_STEP, -1);
+	// A reception in progress
+	rx_signal(10, true);
+	poll_for(50);
+	CHECK(sm.view.state == RS_RX);
+	cw_send("E");
+	CHECK(cw_last() == CWMSG_BUSY && hw.tx_calls == tx0);
+	rx_signal(120, true);
+	run(1000);
+	CHECK(sm.view.state == RS_IDLE);
+	// TX inhibit
+	radio_settings_t set = sm.set;
+	set.tx_inhibit = true;
+	radio_sm_set_settings(&sm, &set, now);
+	cw_send("E");
+	CHECK(cw_last() == CWMSG_NO_TX && hw.tx_calls == tx0);
+	set.tx_inhibit = false;
+	// Longer than the time-out: "PARIS PARIS PARIS" at 20 wpm is 8.88 s with the lead and tail
+	set.tot_s = 5;
+	radio_sm_set_settings(&sm, &set, now);
+	CHECK(sm.view.tot_s == 5);
+	cw_send("PARIS PARIS PARIS");
+	CHECK(cw_last() == CWMSG_TOO_LONG && hw.tx_calls == tx0);
+	set.tot_s = 180;
+	radio_sm_set_settings(&sm, &set, now);
+	// Nothing to key
+	radio_cwmsg_get(&v0);
+	CHECK(!radio_cwmsg_put("### $$$"));
+	radio_cwmsg_get(&v);
+	CHECK(v.last == CWMSG_EMPTY && v.refused == v0.refused + 1 && !v.active);
+	// Not an FM channel: the DMR repeater channel, and the VFO in DMR
+	req(RREQ_ZONE_POS, 3);
+	run(100);
+	CHECK(sm.view.ch.mode == RADIO_MODE_DMR && sm.view.channel_number == 4);
+	cw_send("E");
+	CHECK(cw_last() == CWMSG_NOT_FM && hw.tx_calls == tx0);
+	req(RREQ_ZONE_POS, 0);
+	run(100);
+	CHECK(sm.view.channel_number == 1);
+#if CONFIG_VFO_DMR
+	req(RREQ_VFO, 1);
+	req(RREQ_MODE, RADIO_MODE_DMR);
+	CHECK(sm.view.ch.mode == RADIO_MODE_DMR);
+	cw_send("E");
+	CHECK(cw_last() == CWMSG_NOT_FM && hw.tx_calls == tx0);
+	req(RREQ_MODE, RADIO_MODE_FM);
+	req(RREQ_VFO, 0);
+	run(100);
+#endif
+
+	// The channel's bandwidth and TX subtone go out with it: Rptr wide, 25 kHz, CTCSS 100.0 Hz, split TX
+	req(RREQ_ZONE, 2);
+	run(100);
+	CHECK(sm.view.ch.tx_hz == 146340000);
+	cw_send("E");
+	CHECK(hw.tx_hz == 146340000 && hw.tx_bw == RADIO_BW_25K && hw.tx_tone.type == TONE_CTCSS &&
+	      hw.tx_tone.value == 1000);
+	run(500);
+	CHECK(cw_last() == CWMSG_SENT && sm.view.state == RS_IDLE && hw.rx_hz == 146940000);
+
+	// Farnsworth spacing from the settings: "E E" at 20 wpm characters, 10 wpm overall: dot, a 1525 ms word gap, dot
+	settings_t *st = settings_begin();
+	st->cw_wpm = 20;
+	st->cw_eff_wpm = 10;
+	st->cw_tone_hz = 600;
+	settings_end(now);
+	memset(&tone, 0, sizeof(tone));
+	cw_send("E E");
+	CHECK(tone.hz == 600);
+	run(2500);
+	CHECK(tone.changes == 4 && tone.down_ms >= 110 && tone.down_ms <= 130);
+	CHECK(tone.last_up_ms - tone.first_down_ms >= 1635 && tone.last_up_ms - tone.first_down_ms <= 1655);
+	CHECK(cw_last() == CWMSG_SENT);
+	st = settings_begin();
+	st->cw_wpm = 0;
+	st->cw_eff_wpm = 0;
+	st->cw_tone_hz = 0;
+	settings_end(now);
+
+	// Through the UI's services (ui_svc_radio.c, ui_svc_storage.c): the settings read the defaults when stored 0,
+	// refuse what is out of range, and {CALL} comes from the radio name only when it is a callsign
+	CHECK(ui_svc_setting_get(UI_SET_CW_WPM) == 20 && ui_svc_setting_get(UI_SET_CW_EFF_WPM) == 0 &&
+	      ui_svc_setting_get(UI_SET_CW_TONE_HZ) == 800);
+	CHECK(ui_svc_setting_set(UI_SET_CW_WPM, 25) && ui_svc_setting_get(UI_SET_CW_WPM) == 25);
+	CHECK(!ui_svc_setting_set(UI_SET_CW_WPM, 4) && !ui_svc_setting_set(UI_SET_CW_WPM, 41));
+	CHECK(ui_svc_setting_set(UI_SET_CW_EFF_WPM, 10) && ui_svc_setting_get(UI_SET_CW_EFF_WPM) == 10);
+	CHECK(ui_svc_setting_set(UI_SET_CW_EFF_WPM, 0) && !ui_svc_setting_set(UI_SET_CW_EFF_WPM, 3));
+	CHECK(ui_svc_setting_set(UI_SET_CW_TONE_HZ, 700) && ui_svc_setting_get(UI_SET_CW_TONE_HZ) == 700);
+	CHECK(!ui_svc_setting_set(UI_SET_CW_TONE_HZ, 200));
+	char out[48];
+	strcpy(fake_radio_name, "Josh");			// a name, not a callsign
+	CHECK(ui_svc_cw_expand("DE {CALL}", out, sizeof out) == 0);
+	strcpy(fake_radio_name, "kn0ble-7 Josh");		// the callsign, before an SSID
+	CHECK(ui_svc_cw_expand("CQ DE {CALL} {CALL} K", out, sizeof out) == 21 && strcmp(out, "CQ DE KN0BLE KN0BLE K") == 0);
+	CHECK(ui_svc_cw_expand("QRZ?", out, sizeof out) == 4);	// no {CALL}: no callsign needed
+	ui_cw_t c;
+	CHECK(ui_svc_cw_send("de kn0ble"));
+	ui_svc_cw_get(&c);
+	CHECK(c.active && sm.view.cw_tx);
+	ui_svc_cw_stop();
+	ui_svc_cw_get(&c);
+	CHECK(!c.active && c.last == UI_CW_CUT && !sm.view.cw_tx);
+	fake_radio_name[0] = '\0';
+	st = settings_begin();
+	st->cw_wpm = 0;
+	st->cw_eff_wpm = 0;
+	st->cw_tone_hz = 0;
+	settings_end(now);
+}
+#endif
+
 // The UI's on-the-fly DMR changes (temporary timeslot, color code and mode), hear all latched, the one-shot talk
 // target of a focused row and the reply window setting (docs/spec/ui.md 4)
 static void test_ui_requests(void)
@@ -4171,6 +4361,18 @@ void radio_req_volume_override(int8_t step) { req(RREQ_VOLUME_OVERRIDE, step); }
 void radio_req_volume_hold(bool hold) { req(RREQ_VOLUME_HOLD, hold); }
 void radio_req_clear_temporary(void) { req(RREQ_CLEAR_TEMP, 0); }
 void radio_req_retune(void) { req(RREQ_RETUNE, 0); }
+#if CONFIG_CW_SEND
+// As radio_task.c does it: the text to the handover, the request to the state machine
+bool radio_req_cw_send(const char *text)
+{
+	if (!radio_cwmsg_put(text)) {
+		return false;
+	}
+	req(RREQ_CW_SEND, 0);
+	return true;
+}
+void radio_req_cw_stop(void) { req(RREQ_CW_STOP, 0); }
+#endif
 #if CONFIG_NXDN
 // As radio_task.c does it: the settings to the module, the request to the state machine
 void radio_req_nxdn_settings(const radio_nxdn_settings_t *s)
@@ -11860,6 +12062,9 @@ int main(void)
 	test_hotspot();
 	test_hotspot_session();
 	test_hotspot_cwid();
+#if CONFIG_CW_SEND
+	test_cw_message();
+#endif
 #if CONFIG_SFR
 	test_sfr_roles();
 #if CONFIG_VFO_DMR

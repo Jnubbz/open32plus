@@ -744,6 +744,10 @@ static int32_t sim_late[UI_SET_COUNT - UI_SET_RAM_COUNT];
 
 int32_t ui_svc_setting_get(uint8_t id)
 {
+#if CONFIG_CW_SEND
+	if ((id == UI_SET_CW_WPM || id == UI_SET_CW_TONE_HZ) && sim_late[id - UI_SET_RAM_COUNT] == 0)
+		return id == UI_SET_CW_WPM ? 20 : 800;	// stored 0 reads as the keyer's default, as ui_svc_storage.c does
+#endif
 	return id >= UI_SET_RAM_COUNT && id < UI_SET_COUNT ? sim_late[id - UI_SET_RAM_COUNT] : ui_svc_ram_get(id);
 }
 
@@ -2243,6 +2247,43 @@ bool ui_svc_aprs_send_message(const char *to, const char *text, uint8_t flags)
 	sim_rec.last_aprs_flags = flags;
 	return true;
 }
+#if CONFIG_CW_SEND
+// CW messages: handed over and keying until stopped (the radio core is not here); {CALL} is the sim's callsign
+static ui_cw_t sim_cw;
+bool ui_svc_cw_send(const char *text)
+{
+	if (sim_cw.active)
+		return false;
+	sim_rec.messages_sent++;
+	strncpy(sim_rec.last_text, text, sizeof(sim_rec.last_text) - 1);
+	sim_cw.active = true;
+	return true;
+}
+void ui_svc_cw_stop(void)
+{
+	if (sim_cw.active) {
+		sim_cw.active = false;
+		sim_cw.last = UI_CW_CUT;
+		sim_cw.serial++;
+	}
+}
+void ui_svc_cw_get(ui_cw_t *out) { *out = sim_cw; }
+uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap)
+{
+	size_t n = 0;
+	for (const char *p = tmpl; *p != '\0' && n + 1u < cap; ) {
+		if (strncmp(p, "{CALL}", 6) == 0) {
+			for (const char *c = "N0CALL"; *c != '\0' && n + 1u < cap; c++)
+				out[n++] = *c;
+			p += 6;
+		} else {
+			out[n++] = *p++;
+		}
+	}
+	out[n] = '\0';
+	return (uint8_t)n;
+}
+#endif
 bool ui_svc_radio_check(uint32_t id) { sim_rec.radio_checks++; check_id = id; check_due = now_ms + 800; return true; }
 bool ui_svc_call_alert(uint32_t id) { (void)id; sim_rec.call_alerts++; return true; }
 // A GPS + BeiDou receiver near Boston with a 3D fix: 9 of 14 satellites used
@@ -2669,6 +2710,9 @@ void sim_reset(const sim_geom_t *g, sim_map_t map)
 	ui_layout_init();
 	memset(&view, 0, sizeof view);
 	memset(&sim_rec, 0, sizeof sim_rec);
+#if CONFIG_CW_SEND
+	memset(&sim_cw, 0, sizeof sim_cw);
+#endif
 #if CONFIG_DMR_AES
 	sim_aes_keys = false;
 #endif

@@ -46,6 +46,10 @@ typedef enum {
 	SCR_SATELLITE,			// selected satellite: live pass details and tracking controls
 	SCR_SATELLITE_TEXT,		// one 69-character TLE line
 	SCR_SIG_CHAIN,			// Settings > Signaling tones: one event's five steps (arg = sig_event_t)
+#if CONFIG_CW_SEND
+	SCR_CW_COMPOSE,			// Messages > Send CW: canned CW messages and Write... (docs/spec/morse.md 5)
+	SCR_CW_SEND,			// a CW message keying, or what became of it; Back stops it
+#endif
 #if CONFIG_BACKLIGHT_TEST
 	SCR_BL_TEST,			// Settings > Advanced > Backlight tests
 #endif

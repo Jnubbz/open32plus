@@ -1748,6 +1748,66 @@ msgid "OK send  Back"
 msgstr "OK envoi  Retour"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_WHY_ACTIVE"
+msgid "A CW message is already sending"
+msgstr "Un message CW est déjà en cours"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_EMPTY"
+msgid "Not sent: nothing to key"
+msgstr "Non envoyé : rien à manipuler"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_NO_CALLSIGN"
+msgid "No callsign: set the radio name to it"
+msgstr "Pas d'indicatif : mettez-le en nom radio"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_TITLE"
+msgid "Send CW"
+msgstr "Envoyer CW"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_STATE_SENDING"
+msgid "Sending CW..."
+msgstr "Envoi CW..."
+
+#: core/ui/ui_menus.c
+msgctxt "CW_STATE_SENT"
+msgid "Sent"
+msgstr "Envoyé"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_STATE_STOPPED"
+msgid "Stopped"
+msgstr "Arrêté"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_NOT_FM"
+msgid "Not sent: CW needs an FM channel"
+msgstr "Non envoyé : CW demande un canal FM"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_BUSY"
+msgid "Not sent: the channel is busy"
+msgstr "Non envoyé : canal occupé"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_NO_TX"
+msgid "Not sent: can't transmit here"
+msgstr "Non envoyé : émission impossible ici"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_TOO_LONG"
+msgid "Not sent: longer than the TX time limit"
+msgstr "Non envoyé : dépasse la limite TX"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_HINT_SENDING"
+msgid "Back stop"
+msgstr "Retour arrêter"
+
+#: core/ui/ui_menus.c
 msgctxt "VALUE_NO_NAME"
 msgid "(no name)"
 msgstr "(sans nom)"
@@ -1776,6 +1836,11 @@ msgstr "Pas contact: qdmr"
 msgctxt "WHY_CONTACTS_NOT_IN_BUILD"
 msgid "Contacts: not in this build"
 msgstr "Contacts indispo."
+
+#: core/ui/ui_menus.c
+msgctxt "MSG_ROW_SEND_CW"
+msgid "Send CW"
+msgstr "Envoyer CW"
 
 #: core/ui/ui_menus.c
 msgctxt "MSG_ROW_NEW_APRS"
@@ -4033,6 +4098,21 @@ msgid "SFR CW ID"
 msgstr "ID CW SFR"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_SPEED"
+msgid "Speed"
+msgstr "Vitesse"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_FARNSWORTH"
+msgid "Farnsworth"
+msgstr "Farnsworth"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_TONE"
+msgid "Tone"
+msgstr "Tonalité"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"
 msgid "Key type"
 msgstr "Type de clé"
@@ -4256,6 +4336,11 @@ msgstr "Touches"
 msgctxt "SET_ROW_MY_RADIO"
 msgid "My radio"
 msgstr "Ma radio"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_ROW_CW"
+msgid "CW"
+msgstr "CW"
 
 #: core/ui/ui_menus.c
 msgctxt "SET_ROW_SIGNALING_TONES"

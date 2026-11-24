@@ -389,10 +389,13 @@ static char aprs_to[AX25_CALL_LEN + 4];
 static char aprs_compose_to[AX25_CALL_LEN + 4];
 static uint8_t aprs_message_flags;
 static bool aprs_composing;
+#if CONFIG_CW_SEND
+static bool cw_writing;			// the message editor's text goes out as CW (Send CW's Write...)
+#endif
 #if CONFIG_APRS_AFSK
 static void ui_text_open_to(char *target, uint8_t max);
 #endif
-#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK
+#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK || CONFIG_CW_SEND
 static void ui_text_open_message(bool aprs);
 #endif
 static bool compose_aprs(void) { return aprs_composing; }
@@ -484,7 +487,7 @@ static void compose_select(uint16_t i, bool hold)
 		send_text(tr(canned[i]), aprs, -1);
 	}
 	else if (i == CANNED_N) {
-#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK
+#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK || CONFIG_CW_SEND
 		ui_text_open_message(compose_aprs());
 	#endif
 	} else if (compose_aprs()) {
@@ -504,6 +507,9 @@ static const char *compose_title(void)
 
 static void compose_enter(void)
 {
+#if CONFIG_CW_SEND
+	cw_writing = false;	// Write... here sends a text message, not CW
+#endif
 	aprs_composing = ui_frame()->arg == 1u;
 	str_copy(aprs_to, sizeof aprs_to, compose_aprs() ? aprs_compose_to : "");
 	aprs_compose_to[0] = 0;
@@ -515,6 +521,122 @@ static const ui_scr_def_t compose_screen = {
 	.hint = TRN(MSG_HINT_COMPOSE, "OK send  Back"),
 	.count = compose_count, .item = compose_item, .select = compose_select, .title = compose_title, .enter = compose_enter,
 };
+
+#if CONFIG_CW_SEND
+// ======================= CW messages (docs/spec/morse.md 5) =======================
+// The composer in CW mode (cw_compose): canned messages with {CALL} filled in, then Write..., which opens the message
+// editor. Sending hands the text to the radio core, which keys it on the FM channel; cw-send shows how it goes, and
+// Back there stops a message still keying. The canned texts are what goes on air: Morse, never translated
+
+static const char *const cw_canned[] = { "CQ CQ CQ DE {CALL} {CALL} K", "QRZ? DE {CALL} K", "TU 73 DE {CALL} <SK>",
+	"DE {CALL}" };
+#define CW_CANNED_N	(sizeof cw_canned / sizeof cw_canned[0])
+static char cw_shown[UI_MSG_TEXT_MAX + 1];	// the message cw-send shows
+
+static void cw_send(const char *text)
+{
+	str_copy(cw_shown, sizeof cw_shown, text);
+	if (!ui_svc_cw_send(text)) {
+		ui_cw_t c;
+		ui_svc_cw_get(&c);
+		ui_toast(c.active ? TR(CW_WHY_ACTIVE, "A CW message is already sending") :
+			 c.last == UI_CW_EMPTY ? TR(CW_WHY_EMPTY, "Not sent: nothing to key") :
+			 TR(MSG_TOAST_SEND_FAILED, "Couldn't send: try again"));
+		return;
+	}
+	ui_go_home();
+	ui_push(SCR_CW_SEND, 0);
+}
+
+static uint16_t cw_compose_count(void) { return CW_CANNED_N + 1u; }
+
+static void cw_compose_item(uint16_t i, ui_item_t *it)
+{
+	if (i == CW_CANNED_N) {
+		str_copy(it->label, sizeof it->label, TR(MSG_ROW_WRITE, "Write..."));
+		return;
+	}
+	char text[48];
+	sbuf_t b;
+	sb_init(&b, it->label, sizeof it->label);
+	sb_chr(&b, '"');
+	if (ui_svc_cw_expand(cw_canned[i], text, sizeof text) != 0) {
+		sb_str(&b, text);
+	} else {
+		sb_str(&b, cw_canned[i]);	// no callsign in the radio name: the template, dimmed
+		it->flags |= UI_ITEM_DIM;
+	}
+	sb_chr(&b, '"');
+}
+
+static void cw_compose_select(uint16_t i, bool hold)
+{
+	(void)hold;
+	if (i == CW_CANNED_N) {
+		cw_writing = true;
+		ui_text_open_message(false);
+		return;
+	}
+	char text[48];
+	if (ui_svc_cw_expand(cw_canned[i], text, sizeof text) == 0) {
+		ui_toast(TR(CW_WHY_NO_CALLSIGN, "No callsign: set the radio name to it"));
+		return;
+	}
+	cw_send(text);
+}
+
+static void cw_compose_enter(void)
+{
+	cw_writing = false;
+}
+
+static const ui_scr_def_t cw_compose_screen = {
+	.name = "cw-compose", .flags = SF_LIST | SF_FIELD, .prefix = TRN(CW_TITLE, "Send CW"),
+	.hint = TRN(MSG_HINT_COMPOSE, "OK send  Back"),
+	.count = cw_compose_count, .item = cw_compose_item, .select = cw_compose_select, .enter = cw_compose_enter,
+};
+
+// How the message goes: keying, or what became of it
+static uint16_t cw_send_count(void) { return 1; }
+
+static void cw_send_item(uint16_t i, ui_item_t *it)
+{
+	(void)i;
+	ui_cw_t c;
+	ui_svc_cw_get(&c);
+	tr_id_t s = c.active ? TRN(CW_STATE_SENDING, "Sending CW...") :
+		c.last == UI_CW_SENT ? TRN(CW_STATE_SENT, "Sent") :
+		c.last == UI_CW_CUT ? TRN(CW_STATE_STOPPED, "Stopped") :
+		c.last == UI_CW_NOT_FM ? TRN(CW_WHY_NOT_FM, "Not sent: CW needs an FM channel") :
+		c.last == UI_CW_BUSY ? TRN(CW_WHY_BUSY, "Not sent: the channel is busy") :
+		c.last == UI_CW_NO_TX ? TRN(CW_WHY_NO_TX, "Not sent: can't transmit here") :
+		c.last == UI_CW_TOO_LONG ? TRN(CW_WHY_TOO_LONG, "Not sent: longer than the TX time limit") :
+		TRN(CW_WHY_EMPTY, "Not sent: nothing to key");
+	str_copy(it->label, sizeof it->label, tr(s));
+	if (!c.active && c.last != UI_CW_SENT)
+		it->flags |= UI_ITEM_WARN;
+}
+
+static const char *cw_send_body(void) { return cw_shown; }
+
+// Back stops a message still keying, then leaves as usual
+static bool cw_send_key(const input_event_t *ev)
+{
+	if (ev->action == ACT_BACK && ev->gesture == GESTURE_PRESS) {
+		ui_cw_t c;
+		ui_svc_cw_get(&c);
+		if (c.active)
+			ui_svc_cw_stop();
+	}
+	return false;
+}
+
+static const ui_scr_def_t cw_send_screen = {
+	.name = "cw-send", .flags = SF_LIST | SF_FIELD, .prefix = TRN(CW_TITLE, "Send CW"),
+	.hint = TRN(CW_HINT_SENDING, "Back stop"),
+	.count = cw_send_count, .item = cw_send_item, .body = cw_send_body, .key = cw_send_key,
+};
+#endif
 
 // ======================= Contacts (type to find) =======================
 
@@ -741,9 +863,15 @@ static bool aprs_new_available(void)
 #endif
 }
 
-static uint16_t msgs_count(void)
+// The rows after the inboxes: New APRS message, then Send CW
+static uint16_t msgs_inbox_rows(void)
 {
 	return ui_svc_msg_count() + ui_svc_aprs_msg_count() + (aprs_new_available() ? 1u : 0u);
+}
+
+static uint16_t msgs_count(void)
+{
+	return msgs_inbox_rows() + (CONFIG_CW_SEND ? 1u : 0u);
 }
 
 // Both inboxes are newest first. Merge their small RAM lists by age for the shared Messages screen.
@@ -777,6 +905,10 @@ static bool msg_row(uint16_t row, bool *aprs, uint16_t *index)
 
 static void msgs_item(uint16_t i, ui_item_t *it)
 {
+	if (CONFIG_CW_SEND && i == msgs_inbox_rows()) {
+		str_copy(it->label, sizeof it->label, TR(MSG_ROW_SEND_CW, "Send CW"));
+		return;
+	}
 	uint16_t dmr_count = ui_svc_msg_count();
 	uint16_t aprs_count = ui_svc_aprs_msg_count();
 	if (aprs_new_available() && i == dmr_count + aprs_count) {
@@ -824,6 +956,12 @@ static void msgs_item(uint16_t i, ui_item_t *it)
 static void msgs_select(uint16_t i, bool hold)
 {
 	(void)hold;
+#if CONFIG_CW_SEND
+	if (i == msgs_inbox_rows()) {
+		ui_push(SCR_CW_COMPOSE, 0);
+		return;
+	}
+#endif
 	if (aprs_new_available() && i == ui_svc_msg_count() + ui_svc_aprs_msg_count())
 		ui_aprs_compose("");
 	else {
@@ -2095,7 +2233,7 @@ uint8_t ui_menus_zones_moved(ui_frame_t *stack, uint8_t sp, uint32_t from, uint3
 }
 #endif
 
-#if CONFIG_CHANNEL_EDIT || CONFIG_APRS_AFSK || CONFIG_DMR_SMS || CONFIG_SATELLITE_TLE
+#if CONFIG_CHANNEL_EDIT || CONFIG_APRS_AFSK || CONFIG_DMR_SMS || CONFIG_SATELLITE_TLE || CONFIG_CW_SEND
 // ======================= Text entry: keypad letters (ui.md 2.1) =======================
 // Phone keypad: in ABC / abc, 2-9 cycle their letters, the digit, then the letters in the other case (ABC: A B C 2 a b
 // c); 1 cycles punctuation and 0 a space, 0 and a few signs. The same key within 1 s takes the next one, another key
@@ -2150,9 +2288,17 @@ static void text_open(char *target, uint8_t max, uint8_t screen)
 	ui_push(screen, 0);
 }
 
-#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK
+#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK || CONFIG_CW_SEND
 static void message_text_kept(void)
 {
+#if CONFIG_CW_SEND
+	if (cw_writing) {
+		cw_writing = false;
+		if (message_buffer[0] != '\0')
+			cw_send(message_buffer);
+		return;
+	}
+#endif
 	if (message_buffer[0] != '\0')
 		send_text(message_buffer, compose_aprs(), -1);
 }
@@ -2395,7 +2541,7 @@ static const ui_scr_def_t aprs_to_screen = {
 };
 #endif
 
-#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK
+#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK || CONFIG_CW_SEND
 static const ui_scr_def_t message_text_screen = {
 	.name = "message-text", .flags = 0, .key = text_key_fn, .enter = text_enter, .draw = text_draw,
 };
@@ -6747,6 +6893,17 @@ static const int16_t v_sfrcwid[] = { 0, 1, 2, 3, 4 };	// radio_cwid_interval_ms 
 static const tr_id_t n_sfrcwid[] = { TRN(VALUE_OFF, "Off"), TRN(VALUE_5_MIN, "5 min"), TRN(VALUE_10_MIN, "10 min"),
 	TRN(VALUE_15_MIN, "15 min"), TRN(VALUE_30_MIN, "30 min") };
 #endif
+#if CONFIG_CW_SEND
+// Settings > CW: the Farnsworth speeds offered (0 off) and the tones; the speed is a number (5..40 wpm, morse.h)
+static const int16_t v_cweff[] = { 0, 5, 8, 10, 12, 15, 18 };
+static const tr_id_t n_cweff[] = { TRN(VALUE_OFF, "Off"), TRX(CW_VALUE_5_WPM, "5 wpm"), TRX(CW_VALUE_8_WPM, "8 wpm"),
+	TRX(CW_VALUE_10_WPM, "10 wpm"), TRX(CW_VALUE_12_WPM, "12 wpm"), TRX(CW_VALUE_15_WPM, "15 wpm"),
+	TRX(CW_VALUE_18_WPM, "18 wpm") };
+static const int16_t v_cwtone[] = { 400, 500, 600, 700, 800, 900, 1000 };
+static const tr_id_t n_cwtone[] = { TRX(CW_VALUE_400_HZ, "400 Hz"), TRX(CW_VALUE_500_HZ, "500 Hz"),
+	TRX(CW_VALUE_600_HZ, "600 Hz"), TRX(CW_VALUE_700_HZ, "700 Hz"), TRX(CW_VALUE_800_HZ, "800 Hz"),
+	TRX(CW_VALUE_900_HZ, "900 Hz"), TRX(CW_VALUE_1000_HZ, "1000 Hz") };
+#endif
 #if CONFIG_DMR && CONFIG_DMR_PRIVACY
 static const int16_t v_ptype[] = { 0, 1, 2 };	// dmrPrivacyType_t
 static const tr_id_t n_ptype[] = { TRN(VALUE_OFF, "Off"), TRX(VALUE_MOTOROLA, "Motorola"),
@@ -6860,6 +7017,15 @@ static const set_item_t s_talk[] = {
 		UI_SET_SFR_CWID, v_sfrcwid, n_sfrcwid),
 #endif
 };
+#if CONFIG_CW_SEND
+// Settings > CW (docs/spec/morse.md): the keyer's speed and tone (the CW IDs' too) and CW messages' Farnsworth speed
+static const set_item_t s_cw[] = {
+	NUMBER(TRN(SET_LABEL_CW_SPEED, "Speed"), "morse wpm words per minute keyer", UI_SET_CW_WPM, 5, 40, 1, " wpm"),
+	LIST(TRN(SET_LABEL_CW_FARNSWORTH, "Farnsworth"), "morse spacing overall speed learning", UI_SET_CW_EFF_WPM,
+		v_cweff, n_cweff),
+	LIST(TRN(SET_LABEL_CW_TONE, "Tone"), "morse pitch sidetone frequency", UI_SET_CW_TONE_HZ, v_cwtone, n_cwtone),
+};
+#endif
 #if CONFIG_DMR && CONFIG_DMR_PRIVACY
 static const set_item_t s_privacy[] = {
 	LIST(TRN(SET_LABEL_PRIVACY_KEY_TYPE, "Key type"), "privacy encryption", UI_SET_PRIVACY_TYPE, v_ptype, n_ptype),
@@ -7019,6 +7185,9 @@ static const set_group_t groups[] = {
 	GROUP_T(TRN(SET_ROW_POWER_SAVING, "Power saving"), TRN(SET_TITLE_POWER_SAVING, "Power Saving"), s_power),
 	GROUP(TRN(SET_ROW_KEYS, "Keys"), s_keys), GROUP(TRN(WORD_KEY_LOCK, "Key lock"), s_lock),
 	GROUP_T(TRN(SET_ROW_MY_RADIO, "My radio"), TRN(SET_TITLE_MY_RADIO, "My Radio"), s_my_radio),
+#if CONFIG_CW_SEND
+	GROUP(TRN(SET_ROW_CW, "CW"), s_cw),	// past the digit keys' groups, so those keep their keys in every build
+#endif
 #if CONFIG_SIG_TONES
 	GROUP_T(TRN(SET_ROW_SIGNALING_TONES, "Signaling tones"), TRN(SET_TITLE_SIGNALING_TONES, "Signaling Tones"),
 		s_sigtones),
@@ -8190,6 +8359,9 @@ const ui_scr_def_t *const ui_scr[SCR_COUNT] = {
 	[SCR_HOME] = &home_screen, [SCR_QUICK] = &quick_screen, [SCR_HUB] = &hub_screen,
 	[SCR_FIND] = &ui_find_screen, [SCR_ACTIONS] = &actions_screen, [SCR_CONTACTS] = &contacts_screen,
 	[SCR_MESSAGES] = &messages_screen, [SCR_MESSAGE] = &message_screen, [SCR_COMPOSE] = &compose_screen,
+#if CONFIG_CW_SEND
+	[SCR_CW_COMPOSE] = &cw_compose_screen, [SCR_CW_SEND] = &cw_send_screen,
+#endif
 	[SCR_MESSAGE_READ] = &message_read_screen,
 	[SCR_RECENT] = &recent_screen, [SCR_ZONES] = &channels_screen, [SCR_ZONE] = &zone_screen,
 	[SCR_TOOLS] = &tools_screen, [SCR_SETTINGS] = &settings_screen, [SCR_GROUP] = &group_screen,
@@ -8222,7 +8394,7 @@ const ui_scr_def_t *const ui_scr[SCR_COUNT] = {
 #if CONFIG_APRS_AFSK
 	[SCR_APRS_TO] = &aprs_to_screen,
 #endif
-#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK
+#if CONFIG_DMR_SMS || CONFIG_APRS_AFSK || CONFIG_CW_SEND
 	[SCR_MESSAGE_TEXT] = &message_text_screen,
 #endif
 #if CONFIG_CHANNEL_LIST

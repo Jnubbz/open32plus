@@ -119,7 +119,7 @@ typedef struct {
 	uint8_t em_alarm_tries;
 	uint8_t em_hot_mic_s;
 	uint8_t em_stored;		// 1 = the em_ fields hold the emergency settings
-	// The hotspot's CW ID (docs/spec/mmdvm-protocol.md 2.11): 0 = the default
+	// The CW keyer (docs/spec/morse.md): the hotspot's and repeater's CW IDs and CW messages. 0 = the default
 	uint8_t cw_wpm;			// Morse speed, words per minute (PARIS)
 	uint16_t cw_tone_hz;		// keyer tone
 	// DMR repeater roaming (docs/spec/dmr-roaming.md 5.1): the radio core's roam_* settings, taken only when
@@ -245,7 +245,9 @@ typedef struct {
 	// SETTINGS_T3_KILLED set, no DMR at all until a factory reset
 	uint8_t t3_kill;
 	uint8_t satellite_index;	// reserved10[0]: selected TLE record; older records select the first
-	uint8_t reserved10[1];		// 0
+	// CW messages' Farnsworth speed (docs/spec/morse.md 5): the overall wpm, 0 = off (standard spacing). Was
+	// reserved10[1]: an older record reads off
+	uint8_t cw_eff_wpm;
 	// Signaling tones (core/radio/sigtone.h), appended at the end so a record written before reads them as 0:
 	// per event (start of a transmission, its end, a reception's end) where it sounds in DMR and in FM (sig_out_t).
 	// 0 = the default output, as an older record reads. The event's chain of steps is only in its codeplug record

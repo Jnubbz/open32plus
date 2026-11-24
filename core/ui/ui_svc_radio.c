@@ -12,6 +12,9 @@
 #include "radio/mic_gain.h"
 #include "radio/ref_trim.h"
 #include "radio/radio_cwid.h"
+#if CONFIG_CW_SEND
+#include "radio/radio_cwmsg.h"
+#endif
 #include "radio/radio_bcast.h"
 #include "codeplug/codeplug_modes.h"	// channel kinds: a trunked one is never watched
 #include "input/input.h"
@@ -547,3 +550,39 @@ void ui_svc_apply(uint8_t id, int32_t value)
 	}
 	rs_send(&was);
 }
+
+#if CONFIG_CW_SEND
+// CW messages (docs/spec/morse.md 5): the radio core keys them (radio_req_cw_send, radio_cwmsg.h)
+_Static_assert((int)UI_CW_SENT == (int)CWMSG_SENT && (int)UI_CW_CUT == (int)CWMSG_CUT &&
+	       (int)UI_CW_NOT_FM == (int)CWMSG_NOT_FM && (int)UI_CW_BUSY == (int)CWMSG_BUSY &&
+	       (int)UI_CW_NO_TX == (int)CWMSG_NO_TX && (int)UI_CW_TOO_LONG == (int)CWMSG_TOO_LONG &&
+	       (int)UI_CW_EMPTY == (int)CWMSG_EMPTY, "ui_cw_t.last is a cwmsg_result_t");
+
+bool ui_svc_cw_send(const char *text)
+{
+	return radio_req_cw_send(text);
+}
+
+void ui_svc_cw_stop(void)
+{
+	radio_req_cw_stop();
+}
+
+void ui_svc_cw_get(ui_cw_t *out)
+{
+	radio_cwmsg_view_t v;
+	radio_cwmsg_get(&v);
+	out->active = v.active;
+	out->last = v.last;
+	out->serial = v.serial;
+}
+
+uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap)
+{
+	char name[17];
+	char call[RADIO_CWID_CALL_MAX + 1];
+	ui_svc_name_get(UI_NAME_RADIO, name);
+	radio_cwid_callsign(name, call, sizeof(call));	// the SFR CW ID's rule: empty when the name isn't a callsign
+	return radio_cwmsg_expand(tmpl, call, out, cap);
+}
+#endif

@@ -19,6 +19,7 @@
 #include "radio/radio.h"
 #include "settings/settings.h"
 #include "radio/ref_trim.h"
+#include "radio/morse.h"	// the CW keyer's limits (Settings > CW)
 #include "storage/storage.h"
 #include "codeplug/codeplug.h"
 #include "codeplug/codeplug_kv.h"
@@ -299,6 +300,18 @@ static __attribute__((noinline)) int32_t setting_get_flash(uint8_t id)
 	}
 	case UI_SET_POS_SEND_S:
 		return SETTINGS_FIELD(pos_send_s);
+#if CONFIG_CW_SEND
+	case UI_SET_CW_WPM: {		// stored 0, or out of range: the keyer's default (radio_sm.c cw_speed)
+		uint8_t w = SETTINGS_FIELD(cw_wpm);
+		return w >= MORSE_WPM_MIN && w <= MORSE_WPM_MAX ? w : MORSE_WPM_DEFAULT;
+	}
+	case UI_SET_CW_EFF_WPM:
+		return SETTINGS_FIELD(cw_eff_wpm);
+	case UI_SET_CW_TONE_HZ: {
+		uint16_t hz = SETTINGS_FIELD(cw_tone_hz);
+		return hz >= MORSE_TONE_MIN_HZ && hz <= MORSE_TONE_MAX_HZ ? hz : MORSE_TONE_HZ_DEFAULT;
+	}
+#endif
 	case UI_SET_LANGUAGE:
 		return (int32_t)((uint8_t)SETTINGS_FIELD(lang[0]) << 8 | (uint8_t)SETTINGS_FIELD(lang[1]));
 	case UI_SET_LARGE_TEXT:
@@ -617,6 +630,29 @@ bool ui_svc_setting_set(uint8_t id, int32_t value)
 		tftp_codeplug_allow_write(value != 0);
 #endif
 		return true;
+#if CONFIG_CW_SEND
+	case UI_SET_CW_WPM:
+		if (value < MORSE_WPM_MIN || value > MORSE_WPM_MAX)
+			return false;
+		st = settings_begin();
+		st->cw_wpm = (uint8_t)value;
+		settings_end(hal_millis());
+		return true;
+	case UI_SET_CW_EFF_WPM:		// 0 off; a speed not below the character speed keys standard spacing
+		if (value != 0 && (value < MORSE_WPM_MIN || value > MORSE_WPM_MAX))
+			return false;
+		st = settings_begin();
+		st->cw_eff_wpm = (uint8_t)value;
+		settings_end(hal_millis());
+		return true;
+	case UI_SET_CW_TONE_HZ:
+		if (value < MORSE_TONE_MIN_HZ || value > MORSE_TONE_MAX_HZ)
+			return false;
+		st = settings_begin();
+		st->cw_tone_hz = (uint16_t)value;
+		settings_end(hal_millis());
+		return true;
+#endif
 #if CONFIG_ZONE_SHARE
 	case UI_SET_ZONE_OFFERS:
 		if (value != 0 && value != 1)

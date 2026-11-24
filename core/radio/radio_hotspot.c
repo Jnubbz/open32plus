@@ -18,7 +18,7 @@ static volatile int16_t hs_rssi;	// published: the last status poll's RSSI (dBm)
 static volatile uint32_t hs_serial;
 static uint32_t orphan_ms;		// hotspot mode without a running hotspot since, 0 = not
 // CW ID handover: written by the cw_id op (host link task) only while cw_busy is false, read by the radio task
-static char cw_text[MORSE_TEXT_MAX];
+static char cw_text[MORSE_ID_MAX];
 static volatile uint8_t cw_len;
 static volatile bool cw_pending;	// from the op until the radio task has ended (or refused) the ID
 static radio_hs_cw_stats_t cw_stats;
@@ -136,8 +136,8 @@ static bool hs_cw_id(const char *callsign, uint8_t len)
 	if (!hs_active || cw_pending || len == 0) {
 		return false;
 	}
-	if (len > MORSE_TEXT_MAX) {
-		len = MORSE_TEXT_MAX;
+	if (len > MORSE_ID_MAX) {
+		len = MORSE_ID_MAX;
 	}
 	memcpy(cw_text, callsign, len);
 	cw_len = len;
