@@ -35,6 +35,21 @@ void afsk_mod_init(afsk_mod_t *m, uint32_t rate);
 // again until it returns 0
 size_t afsk_mod(afsk_mod_t *m, const uint8_t *tones, uint32_t nbits, int16_t amp, int16_t *out, size_t max);
 
+// A keyed tone (CW messages through hal_afsk_t.tone_start): a sine at hz whose envelope rises and falls over ramp
+// samples (raised cosine) at each key edge, so the keying has no clicks. Silent while up. afsk_tone_key may be called
+// from another context than afsk_tone (one flag)
+typedef struct {
+	uint32_t phase, step;	// oscillator, 2^32 = one turn
+	uint16_t ramp, pos;	// envelope: pos 0 silent .. ramp full
+	int16_t amp;
+	volatile bool down;
+} afsk_tone_t;
+
+void afsk_tone_init(afsk_tone_t *t, uint32_t rate, uint16_t hz, int16_t amp, uint16_t ramp);
+void afsk_tone_key(afsk_tone_t *t, bool down);
+// n samples of the tone as keyed now
+void afsk_tone(afsk_tone_t *t, int16_t *out, size_t n);
+
 // A frame the demodulator found (FCS good): bytes without the FCS
 typedef void (*afsk_frame_fn)(const uint8_t *frame, size_t n, void *ctx);
 

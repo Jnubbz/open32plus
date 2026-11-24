@@ -52,6 +52,44 @@ size_t afsk_mod(afsk_mod_t *m, const uint8_t *tones, uint32_t nbits, int16_t amp
 	return n;
 }
 
+void afsk_tone_init(afsk_tone_t *t, uint32_t rate, uint16_t hz, int16_t amp, uint16_t ramp)
+{
+	t->phase = 0;
+	t->step = (uint32_t)(((uint64_t)hz << 32) / rate);
+	t->ramp = ramp != 0 ? ramp : 1;
+	t->pos = 0;
+	t->amp = amp;
+	t->down = false;
+}
+
+void afsk_tone_key(afsk_tone_t *t, bool down)
+{
+	t->down = down;
+}
+
+void afsk_tone(afsk_tone_t *t, int16_t *out, size_t n)
+{
+	bool down = t->down;
+	for (size_t i = 0; i < n; i++) {
+		if (down && t->pos < t->ramp) {
+			t->pos++;
+		} else if (!down && t->pos > 0) {
+			t->pos--;
+		}
+		if (t->pos == 0) {
+			t->phase = 0;	// each element starts at the same phase
+			out[i] = 0;
+			continue;
+		}
+		// raised cosine: (1 - cos(pi pos / ramp)) / 2, cos(x) as sine a quarter turn on
+		uint32_t idx = ((uint32_t)t->pos * 128u) / t->ramp;
+		int32_t env = (32767 - sine[(idx + 64u) & 255u]) / 2;
+		int32_t s = ((int32_t)t->amp * sine[t->phase >> 24]) / 32767;
+		out[i] = (int16_t)((s * env) / 32767);
+		t->phase += t->step;
+	}
+}
+
 // Hysteresis on the normalized difference, in 1/256 (13 = 0.05)
 // The high passed path's corner, two first-order stages. A one-bit correlator is short and its passband wide, so
 // audio under the tones (a receiver's hum, sub-audible tone residue) leaks into the mark correlator. A radio heard

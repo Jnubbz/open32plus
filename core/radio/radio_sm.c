@@ -7217,11 +7217,29 @@ static void hotspot_follow_power(radio_sm_t *sm)
 // still did with a receiver's battery save on (morse.md 5.2)
 #define CW_TAIL_MS		150	// and after the last
 enum { CW_OFF = 0, CW_KEYING, CW_TAIL };
+#if CONFIG_CW_SEND
+// A message's tone level through the audio path (hal_afsk_t level, 50 = about 3 kHz peak): near the HR_C7000 tone
+// generator's 1.1 kHz at 12.5 kHz and 1.5 kHz at 25 kHz that the CW IDs use. Unmeasured on the air
+#define CW_AUDIO_LEVEL		18
+#define CW_AUDIO_LEVEL_WIDE	26
+
+static bool cw_audio_path(void)
+{
+	return board.afsk != NULL && board.afsk->tone_start != NULL && board.afsk->tone_key != NULL &&
+	       board.afsk->tx_stop != NULL;
+}
+#endif
 enum { CW_END_SENT, CW_END_CUT, CW_END_REFUSED };	// how a keying ended (cw_ended)
 
 static void cw_key(radio_sm_t *sm, bool down)
 {
 	sm->cw_key = down;
+#if CONFIG_CW_SEND
+	if (sm->cw_audio) {
+		board.afsk->tone_key(down);
+		return;
+	}
+#endif
 	if (board.radio->tx_tone_key != NULL && board.radio->tx_tone_key(down)) {
 		return;
 	}
@@ -7294,7 +7312,12 @@ static void cw_finish(radio_sm_t *sm, uint8_t why, uint32_t ms, uint32_t now_ms)
 	(void)now_ms;
 #if CONFIG_CW_SEND
 	if (sm->cw_msg) {
-		board.radio->tx_tone(0);
+		if (sm->cw_audio) {
+			board.afsk->tx_stop();
+			sm->cw_audio = false;
+		} else {
+			board.radio->tx_tone(0);
+		}
 		board.radio->tx_off();
 		ptt_stops_tx(false);
 		sm->tx_end_ms = now_ms;
@@ -7360,7 +7383,23 @@ static bool cw_begin(radio_sm_t *sm, uint32_t hz, radio_bw_t bw, uint8_t power, 
 		board.radio->set_mode(RADIO_MODE_FM);
 	}
 	sm->cw_phase = CW_KEYING;	// before tx(): cw_finish and outputs see it
-	if (!key_tx(sm, hz, bw, power, tone) || !board.radio->tx_tone(sm->cw_tone_hz)) {
+	bool tone_on;
+#if CONFIG_CW_SEND
+	// A message on a board with a keyed audio tone goes that way: the channel's subtone stays as it is for the
+	// microphone (hal_afsk.h). On the HR_C7000 the tone generator's deviation is the subtone's too
+	sm->cw_audio = sm->cw_msg && cw_audio_path();
+	if (sm->cw_audio) {
+		tone_on = key_tx(sm, hz, bw, power, tone) &&
+			  board.afsk->tone_start(sm->cw_tone_hz, bw == RADIO_BW_25K ? CW_AUDIO_LEVEL_WIDE : CW_AUDIO_LEVEL);
+		if (!tone_on) {
+			sm->cw_audio = false;	// nothing to stop: cw_finish unkeys
+		}
+	} else
+#endif
+	{
+		tone_on = key_tx(sm, hz, bw, power, tone) && board.radio->tx_tone(sm->cw_tone_hz);
+	}
+	if (!tone_on) {
 		cw_finish(sm, CW_END_REFUSED, 0, now_ms);
 		return false;
 	}
@@ -7523,7 +7562,7 @@ static void cwmsg_start(radio_sm_t *sm, uint32_t now_ms)
 		radio_cwmsg_ended(CWMSG_BUSY, 0);
 		return;
 	}
-	if (tx_check(sm) != TXDENY_NONE || tx_held(sm) || ch->rx_only || board.radio->tx_tone == NULL) {
+	if (tx_check(sm) != TXDENY_NONE || tx_held(sm) || ch->rx_only || (board.radio->tx_tone == NULL && !cw_audio_path())) {
 		radio_cwmsg_ended(CWMSG_NO_TX, 0);
 		return;
 	}

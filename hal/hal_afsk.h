@@ -29,6 +29,11 @@ typedef struct {
 	bool (*tx_busy)(void);
 	// Stop (early or after the end) and give the transmitter its microphone back; the core unkeys after this
 	void (*tx_stop)(void);
+	// Optional (NULL: none): a keyed tone through the same path, for CW messages (docs/spec/morse.md 5.2). Starts
+	// silent; tone_key(true) sounds hz, false silences it, each edge ramped so the keying makes no clicks. level as
+	// tx_start's. The channel's subtone stays on, as it does for the microphone. tx_stop ends it. False when it can't
+	bool (*tone_start)(uint16_t hz, uint8_t level);
+	void (*tone_key)(bool down);
 
 	// Optional receive path (NULL / 0 when there is none)
 	uint32_t rx_rate_hz;

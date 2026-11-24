@@ -1451,6 +1451,54 @@ static void test_parse_fuzz(void)
 	printf("# aprs fuzz: %ld frames, %ld decoded, %ld parsed\n", iters, decoded, parsed);
 }
 
+// The keyed tone for CW messages (afsk_tone, hal_afsk_t.tone_start): silent while up, the tone's frequency and level
+// while down, and raised-cosine edges over the ramp (no step a click would come from)
+static void test_keyed_tone(void)
+{
+	afsk_tone_t t;
+	int16_t buf[800];
+	afsk_tone_init(&t, 8000, 800, 10000, 40);
+	afsk_tone(&t, buf, 100);
+	int peak = 0;
+	for (int i = 0; i < 100; i++) {
+		peak = abs(buf[i]) > peak ? abs(buf[i]) : peak;
+	}
+	CHECK(peak == 0, "silent while up: %d", peak);
+	afsk_tone_key(&t, true);
+	afsk_tone(&t, buf, 800);
+	// the ramp: no sample in its first quarter above a quarter of full, the largest step small against the level
+	int early = 0, step = 0;
+	for (int i = 0; i < 10; i++) {
+		early = abs(buf[i]) > early ? abs(buf[i]) : early;
+	}
+	for (int i = 1; i < 800; i++) {
+		int d = abs(buf[i] - buf[i - 1]);
+		step = d > step ? d : step;
+	}
+	CHECK(early < 2500, "ramp start %d", early);
+	CHECK(step <= 6200, "largest step %d (800 Hz at 8 kHz: 2 sin(pi/10) x 10000 = 6180)", step);
+	// after the ramp: full level, and 800 Hz (rising zero crossings: 8 per 10 ms)
+	peak = 0;
+	int up = 0;
+	for (int i = 80; i < 800; i++) {
+		peak = abs(buf[i]) > peak ? abs(buf[i]) : peak;
+		if (i > 80 && buf[i - 1] < 0 && buf[i] >= 0) {
+			up++;
+		}
+	}
+	CHECK(peak > 9400 && peak <= 10000, "level %d (samples 36 degrees apart: sin 72 = 0.951)", peak);
+	CHECK(up >= 71 && up <= 73, "rising crossings in 90 ms: %d (800 Hz: 72)", up);
+	afsk_tone_key(&t, false);
+	afsk_tone(&t, buf, 40);
+	CHECK(abs(buf[39]) < 100, "ramped down: %d", buf[39]);
+	afsk_tone(&t, buf, 40);
+	peak = 0;
+	for (int i = 0; i < 40; i++) {
+		peak = abs(buf[i]) > peak ? abs(buf[i]) : peak;
+	}
+	CHECK(peak == 0, "silent again: %d", peak);
+}
+
 int main(int argc, char **argv)
 {
 	if (argc == 2 && strcmp(argv[1], "--sweep") == 0) {
@@ -1477,6 +1525,7 @@ int main(int argc, char **argv)
 	test_addresses();
 	test_hdlc();
 	test_afsk();
+	test_keyed_tone();
 	test_position_build();
 	test_position_parse();
 	test_mice();
