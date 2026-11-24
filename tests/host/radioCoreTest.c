@@ -156,6 +156,13 @@ static bool r_tx_tone_key(bool down)
 	tone.changes++;
 	return true;
 }
+// The board's keyed audio tone (hal_afsk_t.tone_start, CW messages): recorded as tx_tone is, with audio set while it
+// plays; NULL tone_start (afsk_tone_off) leaves a board with tx_tone only
+static bool tone_audio;
+static bool a_tone_start(uint16_t hz, uint8_t level) { (void)level; tone_audio = true; return r_tx_tone(hz); }
+static void a_tone_key(bool down) { (void)r_tx_tone_key(down); }
+static void a_tx_stop(void) { tone_audio = false; (void)r_tx_tone(0); }
+static hal_afsk_t fake_afsk = { .tx_stop = a_tx_stop, .tone_start = a_tone_start, .tone_key = a_tone_key };
 static char dtmf_on;		// tx_dtmf: the digit sounding
 static bool r_tx_dtmf(char digit) { dtmf_on = digit; return true; }
 static int16_t ref_trim_ppb = 1;	// ref_trim: the last trim (1: never called)
@@ -509,6 +516,7 @@ const board_t board = {
 	.radio = &fake_radio,
 	.power = &fake_power,
 	.input = &fake_input,
+	.afsk = &fake_afsk,
 	.dmr = &sim_modem,
 	.audio = &fake_audio,
 	.vocoder = &fake_vocoder,
@@ -4149,11 +4157,23 @@ static void test_cw_message(void)
 	req(RREQ_ZONE, 2);
 	run(100);
 	CHECK(sm.view.ch.tx_hz == 146340000);
+	// The tone plays through the board's audio path (hal_afsk_t.tone_start), which leaves the subtone alone: the
+	// HR_C7000's tone generator would garble it (a tone squelch receiver stayed shut on the air)
 	cw_send("E");
 	CHECK(hw.tx_hz == 146340000 && hw.tx_bw == RADIO_BW_25K && hw.tx_tone.type == TONE_CTCSS &&
 	      hw.tx_tone.value == 1000);
+	CHECK(tone_audio && sm.cw_audio && tone.hz == 800);
 	run(1000);
 	CHECK(cw_last() == CWMSG_SENT && sm.view.state == RS_IDLE && hw.rx_hz == 146940000);
+	CHECK(!tone_audio && !sm.cw_audio && tone.hz == 0);
+	// A board without the audio path keys the radio's tone generator, as the CW IDs do
+	fake_afsk.tone_start = NULL;
+	memset(&tone, 0, sizeof(tone));
+	cw_send("E");
+	CHECK(!tone_audio && !sm.cw_audio && tone.hz == 800);
+	run(1000);
+	CHECK(cw_last() == CWMSG_SENT && tone.changes == 2 && tone.hz == 0);
+	fake_afsk.tone_start = a_tone_start;
 
 	// Farnsworth spacing from the settings: "E E" at 20 wpm characters, 10 wpm overall: dot, a 1525 ms word gap, dot
 	settings_t *st = settings_begin();

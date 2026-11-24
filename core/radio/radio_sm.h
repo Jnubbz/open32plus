@@ -445,6 +445,7 @@ typedef struct {
 	bool cw_key;			// the tone keyed now
 	bool cw_sfr;			// the SFR repeater's ID (CONFIG_SFR_CWID), not the hotspot's
 	bool cw_msg;			// a CW message (CONFIG_CW_SEND), not an ID
+	bool cw_audio;			// ... keyed through board.afsk's tone path, not board.radio->tx_tone
 #endif
 #if CONFIG_DMR
 	uint8_t dmr_wake_admits;	// the stack's wake_admits at the last tick (the permit tone for a short press)

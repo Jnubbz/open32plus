@@ -9,6 +9,10 @@
 // ticks for the FIFO to play out before tx_busy goes false. Speaker PCM stays off the FIFO meanwhile
 // (hrc_audio_pcm_hold): its chunks would land between the tones.
 //
+// The same path plays a keyed tone for CW messages (tone_start, morse.md 5.2): the DTMF generator's deviation field
+// is also the CTCSS/DCS deviation (modem-hrc7000.md 8.2, 8.3), so a CW tone from it garbled the channel's subtone and
+// a receiver with tone squelch stayed shut (seen on the air). Through the FIFO the subtone is left alone.
+//
 // Receive: the HR_C7000 copies its demodulated FM audio to the CPU (fm_rx_audio.c); the board's listen hook keeps the
 // receiver's audio on the HR_C7000's input. Needs the DMR glue's system interrupt (CONFIG_DMR).
 #include "config.h"
@@ -34,6 +38,11 @@ static bool routed;
 static bool done;
 static uint8_t drain;
 static bool irq_set;
+#if CONFIG_CW_SEND
+#define TONE_RAMP	40u	// samples: a 5 ms raised-cosine edge at 8 kHz
+static afsk_tone_t tone;
+static bool tone_mode;		// playing tone, not tones[]: never done until tx_stop
+#endif
 
 // Generate and push chunks while the FIFO has room (interrupt context, or task level before the timer starts). A chunk
 // the full FIFO refused waits in chunk[] for the next tick: the modulator's phase has moved past it
@@ -47,13 +56,20 @@ static void fill(void)
 			if (done) {
 				return;
 			}
-			size_t n = afsk_mod(&mod, tones, nbits, amp, chunk, C7_PROMPT_CHUNK);
-			if (n == 0) {
-				done = true;
-				return;
-			}
-			for (size_t i = n; i < C7_PROMPT_CHUNK; i++) {
-				chunk[i] = 0;
+#if CONFIG_CW_SEND
+			if (tone_mode) {
+				afsk_tone(&tone, chunk, C7_PROMPT_CHUNK);
+			} else
+#endif
+			{
+				size_t n = afsk_mod(&mod, tones, nbits, amp, chunk, C7_PROMPT_CHUNK);
+				if (n == 0) {
+					done = true;
+					return;
+				}
+				for (size_t i = n; i < C7_PROMPT_CHUNK; i++) {
+					chunk[i] = 0;
+				}
 			}
 			pending = true;
 		}
@@ -108,6 +124,9 @@ static bool tx_start(const uint8_t *t, uint16_t n, uint16_t baud, uint16_t mark,
 	if (!route(true)) {
 		return false;
 	}
+#if CONFIG_CW_SEND
+	tone_mode = false;
+#endif
 	tones = t;
 	nbits = n;
 	int32_t a = (int32_t)level * hooks->amp_per_level;
@@ -127,6 +146,40 @@ static bool tx_start(const uint8_t *t, uint16_t n, uint16_t baud, uint16_t mark,
 	return true;
 }
 
+#if CONFIG_CW_SEND
+// tick() and fill() as for the tones, with the keyed tone's chunks; done never sets, so it plays (silence while the
+// key is up) until tx_stop
+static bool tone_start(uint16_t hz, uint8_t level)
+{
+	if (modem == NULL || busy || hz == 0 || hz >= 4000u) {
+		return false;
+	}
+	if (!route(true)) {
+		return false;
+	}
+	int32_t a = (int32_t)level * hooks->amp_per_level;
+	afsk_tone_init(&tone, 8000u, hz, (int16_t)(a > 32000 ? 32000 : a), TONE_RAMP);
+	tone_mode = true;
+	done = false;
+	pending = false;
+	drain = 0;
+	if (!irq_set) {
+		hrc_irq_register(IRQ_TIMER4, tick);
+		hrc_irq_enable(IRQ_TIMER4, true);
+		irq_set = true;
+	}
+	fill();
+	busy = true;
+	hrc_timer_periodic(TIMER_AFSK, TICK_US);
+	return true;
+}
+
+static void tone_key(bool down)
+{
+	afsk_tone_key(&tone, down);
+}
+#endif
+
 static bool tx_busy(void)
 {
 	return busy;
@@ -137,6 +190,9 @@ static void tx_stop(void)
 	uint32_t s = hrc_irq_save();
 	hrc_timer_stop(TIMER_AFSK);
 	busy = false;
+#if CONFIG_CW_SEND
+	tone_mode = false;
+#endif
 	hrc_irq_restore(s);
 	if (routed) {
 		route(false);
@@ -171,6 +227,10 @@ const hal_afsk_t hrc_afsk = {
 	.tx_start = tx_start,
 	.tx_busy = tx_busy,
 	.tx_stop = tx_stop,
+#if CONFIG_CW_SEND
+	.tone_start = tone_start,
+	.tone_key = tone_key,
+#endif
 #if CONFIG_APRS_RX && CONFIG_DMR
 	.rx_rate_hz = HRC7000_FM_RX_RATE,
 	.rx_start = rx_start,

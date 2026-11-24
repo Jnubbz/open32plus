@@ -926,6 +926,13 @@ detection uses FM_FUNCTION_COEF1 = 0x7F499D (134.4 Hz).
 | RadioFoundry's DTMF (`hrc7000_tx_dtmf`, `radio-features.md` 3.7) | the arbitrary-tone sequence with the low tone's step in FM_TONE1's high half and the high tone's in FM_TONE3's, digit "1" sent: one sequence for every digit and for single tones, without the digit codes of figure 95. The deviation is the single tone's (SUBVOICE_COEF b15:8, `hrc7000_dtmf_dev`); the chip attenuates the low tone 2.5 dB; on air the high tone is 5.0 dB over the low one for every digit on two boards (measured), so the datasheet's figure is likely 10 log of the amplitude ratio. That forward twist is the chip's design and isn't corrected: after a receiver's de-emphasis it is +0.4 to +2.1 dB (`radio-features.md` 3.7) |
 | Receive | FM_MOD b1 = 1; SUBVOICE_COEF b27:16 = 1056 (33 ms at 32 kHz), b7:0 threshold; FM_FUNCTION_COEF1..8 = 0x7ECD9D, 0x7E8A34, 0x7E368C, 0x7DD245, 0x7C690D, 0x7B9F03, 0x7AA7A8, 0x7979F5; read FM_DECODE_FLAG2 b11:8 on each signaling interrupt; FM_MOD b23:16 sets the repeat-symbol window |
 
+SUBVOICE_COEF b15:8 is both the tone generator's deviation and the CTCSS/DCS deviation (`hrc7000_fm_tx`). While the
+generator sends, the channel's subtone goes out at the tone's deviation, about five times its own at 12.5 kHz. A
+receiver with tone squelch on 100.0 Hz stayed shut for a CW message keyed this way, and opened for the microphone
+(on the air). CW messages therefore play their tone through the prompt FIFO (`hrc_afsk.c` `tone_start`, 8.4),
+which leaves the subtone alone. DTMF and the 1750 Hz burst still use the generator: on a channel with a TX subtone
+they likely garble it the same way while they sound (untested).
+
 ### 8.4 Prompt / beep FIFO
 
 Set AUDIO_CONTROL b7, then while AUDIO_CONTROL b31 is 0 write 64 bytes (32 × 16-bit samples, low byte first, 8 kHz)
