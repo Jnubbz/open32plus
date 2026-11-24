@@ -16,6 +16,9 @@
 // and a grounded line receives nothing more, so a character means the key is up and the line is picking up noise or
 // data. After noise the pin counts as released until it reads high.
 // RF that holds a released line steadily low, with no character, still reads as held: the TX time-out ends that.
+// One kind of transmission is different: one a press can only stop (a CW message the radio keys by itself,
+// hal_input_t.ptt_stops_tx). A press during it ends it and keys nothing, so a false one from RF costs the rest of the
+// message, never a latch: while stop_only is set (shared_ptt_stop_only), a press counts during the transmission.
 //
 // The line can also latch low: the radio starting to send while the host still sends clamps it until a power cycle, and
 // a chip reset doesn't release it (docs/spec/gotchas.md 16.5). It reads just like a held key, but it starts differently:
@@ -65,10 +68,16 @@ typedef struct {
 	bool high_rx_seen;	// the line's rx_seen at the last scan that read the pin high
 	bool after_send;	// went low right after the radio's own serial send: no press until it reads high
 	bool stuck_timing;	// stuck_ms is running
+	volatile bool stop_only;	// the transmission is one a press only stops (set from the radio task)
 } shared_ptt_t;
 
 // pin_low: the PTT pin as read now
 bool shared_ptt_pressed(shared_ptt_t *s, bool pin_low, const shared_ptt_line_t *line, uint32_t now_ms);
+// The board's hal_input_t.ptt_stops_tx
+static inline void shared_ptt_stop_only(shared_ptt_t *s, bool on)
+{
+	s->stop_only = on;
+}
 // The line has stayed low for SHARED_PTT_STUCK_MS without being able to count as a press, as of the last scan
 bool shared_ptt_stuck(const shared_ptt_t *s, uint32_t now_ms);
 

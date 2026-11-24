@@ -23,7 +23,7 @@ bool shared_ptt_pressed(shared_ptt_t *s, bool pin_low, const shared_ptt_line_t *
 	// A good byte means the line carries data, whatever the state: a held key would ground it. While the radio
 	// transmits, only a press already held stays trusted
 	bool data = line->rx_seen && (uint32_t)(now_ms - line->rx_ms) < SHARED_PTT_QUIET_MS;
-	if (data || (line->keyed && s->state != SHARED_PTT_PRESSED)) {
+	if (data || (line->keyed && !s->stop_only && s->state != SHARED_PTT_PRESSED)) {
 		s->ignored++;	// serial data, or the radio's own transmission on the line
 		s->state = SHARED_PTT_UP;
 		if (data) {

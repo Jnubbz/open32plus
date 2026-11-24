@@ -232,8 +232,14 @@ static bool ptt_line_stuck(void)
 	return shared_ptt_stuck(&ptt_gate, hal_millis());
 }
 
+static void ptt_stops_tx(bool on)
+{
+	shared_ptt_stop_only(&ptt_gate, on);
+}
+
 const hal_input_t db25d_input = {
 	.ptt_line_stuck = ptt_line_stuck,
+	.ptt_stops_tx = ptt_stops_tx,
 	.init = init,
 	.scan = scan,
 	.encoder = encoder,
