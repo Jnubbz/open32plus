@@ -99,7 +99,9 @@ radio hears it. Only on radios built with `CONFIG_CW_SEND` ([which radios](../fe
    radio**). A canned message is dimmed when the radio name isn't a callsign. **Write...** types capitals only: Morse
    has no case, so the letter keys skip lower case and **#** goes between ABC and 123.
 2. Press **OK**. The radio keys the message at once and shows **Sending CW...**, then how it ended.
-3. **PTT** or **Back** stops it at once. The PTT press only stops it: press PTT again to talk.
+3. **PTT** or **Back** stops it at once. The PTT press only stops it: press PTT again to talk. The monitor key or a
+   channel change stops it too.
+4. **Back** returns to the list of CW messages, to send another.
 
 | Rule | What it means |
 |---|---|
