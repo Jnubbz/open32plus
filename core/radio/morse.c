@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 The RadioFoundry Authors
-// Morse timing (morse.h)
+// Copyright (c) 2026 Josh Noble (KN0BLE)
+// Morse timing (morse.h, docs/spec/morse.md)
 #include <string.h>
 #include "radio/morse.h"
 
@@ -39,6 +40,14 @@ uint8_t morse_code(char c)
 	case '?': return 0x4C;	// ..--..
 	case '.': return 0x55;	// .-.-.-
 	case ',': return 0x73;	// --..--
+	case '+': return 0x2A;	// .-.-.
+	case '@': return 0x5A;	// .--.-.
+	case '\'': return 0x5E;	// .----.
+	case '(': return 0x36;	// -.--.
+	case ')': return 0x6D;	// -.--.-
+	case ':': return 0x78;	// ---...
+	case '"': return 0x52;	// .-..-.
+	case '!': return 0x6B;	// -.-.--
 	default: return 0;
 	}
 }
@@ -62,24 +71,41 @@ static bool take_element(uint8_t *code)
 	return dash;
 }
 
-// From character pos on: the next one with a code (its index, len if none) and whether a space came before it
-static uint8_t next_char(const morse_t *m, uint8_t pos, bool *space)
+// From character pos on: the next one with a code (its index, len if none) and whether a space came before it.
+// in: whether pos is inside '<' ... '>' (updated to the found character's). joined: the found character continues the
+// prosign the previous one is in (no '>' and no space between), so the gap before it is one dot, not three
+static uint8_t next_char(const morse_t *m, uint8_t pos, bool *space, bool *in, bool *joined)
 {
+	bool was_in = *in;
+	bool closed = false;
 	*space = false;
 	while (pos < m->len) {
-		if (m->text[pos] == ' ') {
+		char c = m->text[pos];
+		if (c == ' ') {
 			*space = true;
-		} else if (morse_code(m->text[pos]) != 0) {
+		} else if (c == '<') {
+			*in = true;
+		} else if (c == '>') {
+			*in = false;
+			closed = true;
+		} else if (morse_code(c) != 0) {
+			*joined = was_in && *in && !closed && !*space;
 			return pos;
 		}
 		pos++;
 	}
+	*joined = false;
 	return m->len;
 }
 
-// The next segment: key down or up for units; false when the text is over
-static bool next_segment(morse_t *m, bool *key, uint8_t *units)
+// The gap kinds a segment can be: a plain run of units, or the spacing between characters or words (the gaps
+// Farnsworth spacing stretches; their length is in morse_t, their standard units in units)
+enum { SEG_UNITS, SEG_CHAR_GAP, SEG_WORD_GAP };
+
+// The next segment: key down or up for units (kind: how long it lasts); false when the text is over
+static bool next_segment(morse_t *m, bool *key, uint8_t *units, uint8_t *kind)
 {
+	*kind = SEG_UNITS;
 	if (m->done) {
 		return false;
 	}
@@ -91,7 +117,8 @@ static bool next_segment(morse_t *m, bool *key, uint8_t *units)
 			return true;
 		}
 		bool space;
-		uint8_t pos = next_char(m, (uint8_t)(m->pos + 1u), &space);
+		bool joined;
+		uint8_t pos = next_char(m, (uint8_t)(m->pos + 1u), &space, &m->prosign, &joined);
 		if (pos >= m->len) {
 			m->done = true;
 			return false;
@@ -99,7 +126,12 @@ static bool next_segment(morse_t *m, bool *key, uint8_t *units)
 		m->pos = pos;
 		m->code = morse_code(m->text[pos]);
 		*key = false;
-		*units = space ? 7 : 3;
+		if (joined) {
+			*units = 1;		// the next letter of a prosign: keyed as one character
+		} else {
+			*units = space ? 7 : 3;
+			*kind = space ? SEG_WORD_GAP : SEG_CHAR_GAP;
+		}
 		return true;
 	}
 	*key = true;
@@ -117,7 +149,8 @@ static void load(morse_t *m, const char *text, uint8_t len)
 	memcpy(m->text, text, len);
 	m->len = len;
 	bool space;
-	m->pos = next_char(m, 0, &space);
+	bool joined;
+	m->pos = next_char(m, 0, &space, &m->prosign, &joined);
 	if (m->pos >= m->len) {
 		m->done = true;
 		return;
@@ -130,19 +163,50 @@ uint32_t morse_units(const char *text, uint8_t len)
 	morse_t m;
 	bool key;
 	uint8_t units;
+	uint8_t kind;
 	uint32_t total = 0;
 	load(&m, text, len);
-	while (next_segment(&m, &key, &units)) {
+	while (next_segment(&m, &key, &units, &kind)) {
 		total += units;
 	}
 	return total;
 }
 
-void morse_start(morse_t *m, const char *text, uint8_t len, uint8_t wpm, uint32_t now_ms)
+static uint8_t clamp_wpm(uint8_t wpm)
+{
+	return wpm < MORSE_WPM_MIN ? MORSE_WPM_MIN : (wpm > MORSE_WPM_MAX ? MORSE_WPM_MAX : wpm);
+}
+
+void morse_gap_ms(uint8_t wpm, uint8_t eff_wpm, uint16_t *char_ms, uint16_t *word_ms)
+{
+	uint32_t c = clamp_wpm(wpm);
+	uint32_t dot = morse_dot_ms(wpm);
+	if (eff_wpm == 0 || clamp_wpm(eff_wpm) >= c) {
+		*char_ms = (uint16_t)(3u * dot);
+		*word_ms = (uint16_t)(7u * dot);
+		return;
+	}
+	uint32_t s = clamp_wpm(eff_wpm);
+	// ARRL (QST, April 1990, KE3Z): the spacing a 50 unit word needs at s overall, t_a = (60c - 37.2s) / (sc) seconds,
+	// shared over the word's 19 units of character and word gaps: 3 t_a / 19 and 7 t_a / 19. In ms, times 19:
+	// 19 * t_a = (600c - 372s) * 100 / (sc), rounded once at the end
+	uint32_t num = (600u * c - 372u * s) * 100u;
+	uint32_t den = 19u * s * c;
+	*char_ms = (uint16_t)((3u * num + den / 2u) / den);
+	*word_ms = (uint16_t)((7u * num + den / 2u) / den);
+}
+
+void morse_start_farnsworth(morse_t *m, const char *text, uint8_t len, uint8_t wpm, uint8_t eff_wpm, uint32_t now_ms)
 {
 	load(m, text, len);
 	m->dot_ms = morse_dot_ms(wpm);
+	morse_gap_ms(wpm, eff_wpm, &m->char_gap_ms, &m->word_gap_ms);
 	m->until = now_ms;
+}
+
+void morse_start(morse_t *m, const char *text, uint8_t len, uint8_t wpm, uint32_t now_ms)
+{
+	morse_start_farnsworth(m, text, len, wpm, 0, now_ms);
 }
 
 bool morse_poll(morse_t *m, uint32_t now_ms)
@@ -150,12 +214,14 @@ bool morse_poll(morse_t *m, uint32_t now_ms)
 	while (!m->done && (int32_t)(now_ms - m->until) >= 0) {
 		bool key;
 		uint8_t units;
-		if (!next_segment(m, &key, &units)) {
+		uint8_t kind;
+		if (!next_segment(m, &key, &units, &kind)) {
 			break;
 		}
 		m->key = key;
 		m->units += units;
-		m->until += (uint32_t)units * m->dot_ms;
+		m->until += kind == SEG_CHAR_GAP ? m->char_gap_ms :
+			    kind == SEG_WORD_GAP ? m->word_gap_ms : (uint32_t)units * m->dot_ms;
 	}
 	if (m->done) {
 		m->key = false;
