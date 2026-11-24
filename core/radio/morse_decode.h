@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 The RadioFoundry Authors
 // Copyright (c) 2026 Josh Noble (KN0BLE)
-// Morse from received FM audio (MCW, docs/spec/morse.md 7): the tone found between 400 and 1000 Hz, keyed on and off
+// Morse from received FM audio (MCW, docs/spec/morse.md 7): the tone found between 400 and 1000 Hz (a guard bin past
+// each end, so the tone must stand above both neighbors), keyed on and off
 // against levels that follow the signal, the speed learned from the elements, text out as characters arrive.
 // 8 kHz signed 16-bit samples in 10 ms blocks; no clock of its own, so call morse_dec_flush when the audio stops.
 #ifndef MORSE_DECODE_H
@@ -14,8 +15,8 @@
 #define MDEC_RATE	8000u
 #define MDEC_BLOCK	80u	// samples: 10 ms, bins 100 Hz wide
 #define MDEC_BLOCK_MS	10u
-#define MDEC_BINS	13u	// 400 to 1000 Hz in 50 Hz steps
-#define MDEC_HZ_MIN	400u
+#define MDEC_BINS	15u	// 350 to 1050 Hz in 50 Hz steps; the end bins only guard, a tone locks between them
+#define MDEC_HZ_MIN	350u
 #define MDEC_HZ_STEP	50u
 #define MDEC_OUT_MAX	8u	// the most text one block can end ("<SK>", a space, one more character)
 #define MDEC_HIST	8u	// marks and gaps remembered to learn the speed and spacing from

@@ -263,6 +263,13 @@ static void test_decode(void)
 	CHECK(strcmp(out, "QRZ? DE KN0BLE 73 <SK> ") == 0);
 	if (strcmp(out, "QRZ? DE KN0BLE 73 <SK> ") != 0) printf("  got \"%s\"\n", out);
 	CHECK(morse_dec_hz(&d) == 950);
+	// the ends of the range lock between the guard bins
+	mcw_decode("TEST 73", 20, 0, 400, 8000, 800, 300, out, sizeof out, &d);
+	CHECK(strcmp(out, "TEST 73 ") == 0 && morse_dec_hz(&d) == 400);
+	if (strcmp(out, "TEST 73 ") != 0) printf("  got \"%s\"\n", out);
+	mcw_decode("TEST 73", 20, 0, 1000, 8000, 800, 300, out, sizeof out, &d);
+	CHECK(strcmp(out, "TEST 73 ") == 0 && morse_dec_hz(&d) == 1000);
+	if (strcmp(out, "TEST 73 ") != 0) printf("  got \"%s\"\n", out);
 	// a tone between bins (725 Hz) still locks and decodes
 	mcw_decode("PARIS PARIS", 18, 0, 725, 8000, 800, 300, out, sizeof out, &d);
 	CHECK(strcmp(out, "PARIS PARIS ") == 0);
@@ -307,6 +314,42 @@ static void test_decode(void)
 		CHECK(strcmp(out, "CQ CQ DE KN0BLE K KN0BLE DE W1AW K ") == 0);
 		if (strcmp(out, "CQ CQ DE KN0BLE K KN0BLE DE W1AW K ") != 0) printf("  got \"%s\"\n", out);
 		CHECK(morse_dec_hz(&e) == 650 && morse_dec_wpm(&e) >= 11 && morse_dec_wpm(&e) <= 13);
+	}
+	// on the air (991A MCW, 600 Hz, 16 wpm): between the elements the receiver's noise rose, strongest low after
+	// de-emphasis. It must neither lock (its top bin is the lowest) nor move the lock in a gap, which cut every
+	// element short by the blocks a new lock takes (16 wpm read as 27)
+	{
+		morse_t m;
+		morse_dec_t e;
+		const char *text = "CQ CQ DE KN0BLE K";
+		morse_start(&m, text, (uint8_t)strlen(text), 16, 300);
+		morse_dec_init(&e);
+		size_t n = 0;
+		double env = 0, ph = 0, lp = 0, lp2 = 0, hp = 0;
+		int16_t blk[8];
+		noise_seed = 7u;
+		for (uint32_t ms = 0; !m.done || ms < 600u; ms++) {
+			bool key = morse_poll(&m, ms);
+			for (int i = 0; i < 8; i++) {
+				env += key ? 1.0 / 40 : -1.0 / 40;
+				env = env < 0 ? 0 : env > 1 ? 1 : env;
+				double g = (1 - cos(M_PI * env)) / 2;
+				// white noise through two poles near 280 Hz and the receiver's high-pass under 300 Hz
+				lp += 0.2 * (gauss() - lp);
+				lp2 += 0.2 * (lp - lp2);
+				hp += 0.2 * (lp2 - hp);
+				double v = 8000 * g * sin(ph) + 30000 * (1 - g) * (lp2 - hp) + 300 * gauss();
+				ph += 2 * M_PI * 600 / 8000.0;
+				blk[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+			}
+			n += morse_dec_feed(&e, blk, 8, out + n, sizeof out - 1 - n);
+		}
+		n += morse_dec_flush(&e, out + n, sizeof out - 1 - n);
+		out[n] = 0;
+		CHECK(strcmp(out, "CQ CQ DE KN0BLE K ") == 0);
+		if (strcmp(out, "CQ CQ DE KN0BLE K ") != 0) printf("  got \"%s\" at %u Hz %u wpm\n", out,
+			(unsigned)morse_dec_hz(&e), (unsigned)morse_dec_wpm(&e));
+		CHECK(morse_dec_hz(&e) == 600 && morse_dec_wpm(&e) >= 15 && morse_dec_wpm(&e) <= 17);
 	}
 	// noise alone: nothing decoded
 	mcw_decode("", 20, 0, 800, 0, 2000, 3000, out, sizeof out, &d);
