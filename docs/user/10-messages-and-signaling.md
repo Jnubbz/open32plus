@@ -89,6 +89,30 @@ The APRS destination is a callsign, not a DMR ID. A new outgoing message replace
 Sending is refused if the callsign or text is invalid or the APRS RF path is unavailable. **Tools > APRS** shows the
 configured frequency and any blocking reason. Received APRS messages appear in Messages; replies go over APRS.
 
+### Sending in CW
+
+**Messages > Send CW** (the last row) keys a message in Morse code as a tone on the FM channel you are on (MCW). Any FM
+radio hears it. Only on radios built with `CONFIG_CW_SEND` ([which radios](../feature-matrix.md)).
+
+1. Pick a canned message or **Write...**. The canned messages are `CQ CQ CQ DE {CALL} {CALL} K`, `QRZ? DE {CALL} K`,
+   `TU 73 DE {CALL} <SK>` and `DE {CALL}`. `{CALL}` is your callsign, taken from the radio name (**Settings > My
+   radio**). A canned message is dimmed when the radio name isn't a callsign.
+2. Press **OK**. The radio keys the message at once and shows **Sending CW...**, then how it ended.
+3. **PTT** or **Back** stops it at once. The PTT press only stops it: press PTT again to talk.
+
+| Rule | What it means |
+|---|---|
+| FM channels only | On a DMR, P25 or NXDN channel it refuses: an FM tone would land on a digital repeater's input |
+| The channel's settings | Its TX frequency, bandwidth, power and TX tone (CTCSS or DCS), so a tone-access repeater opens |
+| Only when idle | Refused while the radio receives, scans or transmits |
+| Time limit | Refused before any carrier if the message would run past the channel's TX time limit at your speed |
+| Text | Up to 143 characters. Letters, digits and `. , ? ' ! / ( ) : = + - " @`. Letters between `<` and `>` are sent run together as one prosign (`<AR>`, `<SK>`, `<BT>`, `<KN>`). Other characters are left out |
+
+Speed, Farnsworth spacing and tone are in **Settings > CW** ([Settings](17-settings.md#cw)). The details are in
+[morse.md](../spec/morse.md) 5.
+
+<img src="../ux/screens/160x120i5/cw_compose.png" width="200" alt="Messages > Send CW">
+
 ## Message formats
 
 **Settings > Connections > Message format** picks the encoding of new DMR messages. The setting does not affect

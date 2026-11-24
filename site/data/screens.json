@@ -290,6 +290,18 @@
     "DMR_SMS"
    ]
   },
+  "cw_compose": {
+   "group": "messages",
+   "needs": [
+    "CW_SEND"
+   ]
+  },
+  "cw_send": {
+   "group": "messages",
+   "needs": [
+    "CW_SEND"
+   ]
+  },
   "message_view": {
    "group": "messages",
    "needs": [
@@ -919,6 +931,13 @@
    "group": "settings",
    "needs": [
     "UI_SETTINGS"
+   ]
+  },
+  "settings_cw": {
+   "group": "settings",
+   "needs": [
+    "UI_SETTINGS",
+    "CW_SEND"
    ]
   },
   "signaling_steps": {
