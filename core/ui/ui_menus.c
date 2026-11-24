@@ -559,6 +559,7 @@ static void cw_compose_item(uint16_t i, ui_item_t *it)
 	char text[48];
 	sbuf_t b;
 	sb_init(&b, it->label, sizeof it->label);
+	it->flags |= UI_ITEM_PREVIEW;	// the start of the message: cut at its end where it doesn't fit
 	sb_chr(&b, '"');
 	if (ui_svc_cw_expand(cw_canned[i], text, sizeof text) != 0) {
 		sb_str(&b, text);
