@@ -206,10 +206,10 @@ power, received on an analog Baofeng handheld and watched on an FT-991A's scope 
 | PTT during a message | stops it at once (needs `ptt_stops_tx`: the shared PTT line trusts no press while the radio transmits, `gotchas.md` 16.2); the next press talks |
 | SK1 (monitor) during a message | stops it, as designed |
 | The first letter ("E E") | lost with a 150 ms lead-in; heard with 600 ms, except by a receiver with battery save on, which heard it once battery save was off. Hence the Lead-in setting |
-| CTCSS 100.0 Hz, receiver on tone squelch 100.0 | heard once the tone was keyed through the prompt FIFO; with the C7000's tone generator the receiver stayed shut (`modem-hrc7000.md` 8.3). |
-| Occupied width on the scope, 12.5 kHz, a few inches away (the tone generator path, before the FIFO change) | about ±4 kHz, inside the channel |
+| CTCSS 100.0 Hz, receiver on tone squelch 100.0 | heard once the tone was keyed through the prompt FIFO; with the C7000's tone generator the receiver stayed shut (`modem-hrc7000.md` 8.3). Sent with 123.0 Hz instead, the receiver stays shut |
+| Occupied width on the scope, 12.5 kHz, a few inches away | about ±4 kHz with the tone generator, about the same through the FIFO path (levels 18 / 26): inside the channel |
 
-Still to check: a wrong TX tone keeps the receiver shut, the tone's deviation through the FIFO path (levels 18 / 26) on the SDR bench, and VHF.
+Still to measure: the FIFO tone's deviation on the SDR bench, and VHF.
 
 ## NXDN Scrambler interoperability
 
