@@ -5771,7 +5771,9 @@ static const char *about_text(void)
 	// wider than the display and the release wrapped without its label. A release: its name, then the commit it was
 	// built from; any other build: the commit alone
 	sb_str(&b, TR(ABOUT_BODY_FIRMWARE, "Firmware: "));
-	sb_str(&b, "RadioFoundry\n");
+	sb_str(&b, FIRMWARE_NAME "\n");
+	sb_str(&b, TR(ABOUT_BODY_BASED_ON, "Based on: "));
+	sb_str(&b, FIRMWARE_BASED_ON "\n");
 	if (RFOUNDRY_RELEASE[0] != '\0') {
 		sb_str(&b, TR(ABOUT_BODY_RELEASE, "Release: "));
 		sb_str(&b, RFOUNDRY_RELEASE);

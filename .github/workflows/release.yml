@@ -243,6 +243,6 @@ jobs:
           PRE=""
           if python3 tools/release_version.py prerelease "$TAG"; then PRE=--prerelease; fi
           gh release view "$TAG" > /dev/null 2>&1 || \
-            gh release create "$TAG" --verify-tag $PRE --generate-notes --title "RadioFoundry $TAG" --notes "$NOTES" || \
+            gh release create "$TAG" --verify-tag $PRE --generate-notes --title "open32plus $TAG" --notes "$NOTES" || \
             gh release view "$TAG" > /dev/null   # created meanwhile by the manual workflow
           gh release upload "$TAG" out/* --clobber
