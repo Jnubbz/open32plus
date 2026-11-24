@@ -311,6 +311,10 @@ static __attribute__((noinline)) int32_t setting_get_flash(uint8_t id)
 		uint16_t hz = SETTINGS_FIELD(cw_tone_hz);
 		return hz >= MORSE_TONE_MIN_HZ && hz <= MORSE_TONE_MAX_HZ ? hz : MORSE_TONE_HZ_DEFAULT;
 	}
+	case UI_SET_CW_LEAD_MS: {	// stored 0, or out of range: the default (radio_sm.c cw_msg_lead)
+		int32_t ms = (int32_t)SETTINGS_FIELD(cw_lead) * MORSE_LEAD_MS_STEP;
+		return ms >= MORSE_LEAD_MS_MIN && ms <= MORSE_LEAD_MS_MAX ? ms : MORSE_LEAD_MS_DEFAULT;
+	}
 #endif
 	case UI_SET_LANGUAGE:
 		return (int32_t)((uint8_t)SETTINGS_FIELD(lang[0]) << 8 | (uint8_t)SETTINGS_FIELD(lang[1]));
@@ -650,6 +654,13 @@ bool ui_svc_setting_set(uint8_t id, int32_t value)
 			return false;
 		st = settings_begin();
 		st->cw_tone_hz = (uint16_t)value;
+		settings_end(hal_millis());
+		return true;
+	case UI_SET_CW_LEAD_MS:
+		if (value < MORSE_LEAD_MS_MIN || value > MORSE_LEAD_MS_MAX || value % MORSE_LEAD_MS_STEP != 0)
+			return false;
+		st = settings_begin();
+		st->cw_lead = (uint8_t)(value / MORSE_LEAD_MS_STEP);
 		settings_end(hal_millis());
 		return true;
 #endif

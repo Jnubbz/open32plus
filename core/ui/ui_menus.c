@@ -7029,12 +7029,16 @@ static const set_item_t s_talk[] = {
 #endif
 };
 #if CONFIG_CW_SEND
-// Settings > CW (docs/spec/morse.md): the keyer's speed and tone (the CW IDs' too) and CW messages' Farnsworth speed
+// Settings > CW (docs/spec/morse.md): the keyer's speed and tone (the CW IDs' too), CW messages' Farnsworth speed
+// and lead-in
 static const set_item_t s_cw[] = {
 	NUMBER(TRN(SET_LABEL_CW_SPEED, "Speed"), "morse wpm words per minute keyer", UI_SET_CW_WPM, 5, 40, 1, " wpm"),
 	LIST(TRN(SET_LABEL_CW_FARNSWORTH, "Farnsworth"), "morse spacing overall speed learning", UI_SET_CW_EFF_WPM,
 		v_cweff, n_cweff),
 	LIST(TRN(SET_LABEL_CW_TONE, "Tone"), "morse pitch sidetone frequency", UI_SET_CW_TONE_HZ, v_cwtone, n_cwtone),
+	// Carrier before a message's first letter: longer for receivers with battery save on
+	NUMBER(TRN(SET_LABEL_CW_LEAD_IN, "Lead-in"), "morse delay carrier first letter battery save", UI_SET_CW_LEAD_MS,
+	       300, 2000, 100, " ms"),
 };
 #endif
 #if CONFIG_DMR && CONFIG_DMR_PRIVACY

@@ -4113,6 +4113,11 @@ msgid "Tone"
 msgstr "Tonalité"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_LEAD_IN"
+msgid "Lead-in"
+msgstr "Délai initial"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"
 msgid "Key type"
 msgstr "Type de clé"

@@ -4115,6 +4115,11 @@ msgid "Tone"
 msgstr "音调"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_LEAD_IN"
+msgid "Lead-in"
+msgstr "前导时间"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"
 msgid "Key type"
 msgstr "按键类型"

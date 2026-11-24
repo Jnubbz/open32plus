@@ -192,6 +192,7 @@ Between **My radio** and **Signaling tones**, on radios built with `CONFIG_CW_SE
 |---|---|
 | Speed | Character speed, 5 to 40 wpm. Default 20 |
 | Farnsworth | Off, or the overall speed: characters at **Speed**, longer gaps between characters and words. For learning: copy fast characters with time to think. Only CW messages use it; the CW IDs keep standard spacing. Default Off |
+| Lead-in | How long the carrier is up before a CW message's first letter: 300 ms to 2 s. Make it longer if the other station misses your first letter; a receiver with battery save on can sleep through a short one. Default 600 ms |
 | Tone | The tone keyed, 400 to 1000 Hz. Default 800 Hz |
 
 <img src="../ux/screens/160x120i5/settings_cw.png" width="200" alt="Settings > CW">

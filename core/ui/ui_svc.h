@@ -475,6 +475,7 @@ typedef enum {
 	// The CW keyer (Settings > CW, CONFIG_CW_SEND, docs/spec/morse.md): speed in wpm 5..40, the CW messages' Farnsworth
 	// speed in wpm (0 off), the tone in Hz (settings_t.cw_wpm / cw_eff_wpm / cw_tone_hz; stored 0 reads as the default)
 	UI_SET_CW_WPM, UI_SET_CW_EFF_WPM, UI_SET_CW_TONE_HZ,
+	UI_SET_CW_LEAD_MS,	// CW messages' lead-in in ms, MORSE_LEAD_MS_STEP steps (settings_t.cw_lead; stored 0 reads 600)
 	UI_SET_COUNT
 } ui_setting_t;
 

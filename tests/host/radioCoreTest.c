@@ -4168,6 +4168,31 @@ static void test_cw_message(void)
 	CHECK(tone.changes == 4 && tone.down_ms >= 110 && tone.down_ms <= 130);
 	CHECK(tone.last_up_ms - tone.first_down_ms >= 1635 && tone.last_up_ms - tone.first_down_ms <= 1655);
 	CHECK(cw_last() == CWMSG_SENT);
+	// The lead-in from the settings: 1.5 s of carrier before the first dot. Out of range reads the default
+	st = settings_begin();
+	st->cw_lead = 15;
+	settings_end(now);
+	memset(&tone, 0, sizeof(tone));
+	t0 = now;
+	cw_send("E");
+	run(2000);
+	CHECK(tone.first_down_ms >= t0 + 1500 && tone.first_down_ms <= t0 + 1510 && cw_last() == CWMSG_SENT);
+	CHECK(ui_svc_setting_get(UI_SET_CW_LEAD_MS) == 1500);
+	st = settings_begin();
+	st->cw_lead = 200;
+	settings_end(now);
+	memset(&tone, 0, sizeof(tone));
+	t0 = now;
+	cw_send("E");
+	run(1000);
+	CHECK(tone.first_down_ms >= t0 + 600 && tone.first_down_ms <= t0 + 610 && cw_last() == CWMSG_SENT);
+	CHECK(ui_svc_setting_get(UI_SET_CW_LEAD_MS) == 600);
+	CHECK(ui_svc_setting_set(UI_SET_CW_LEAD_MS, 2000) && ui_svc_setting_get(UI_SET_CW_LEAD_MS) == 2000);
+	CHECK(!ui_svc_setting_set(UI_SET_CW_LEAD_MS, 2100) && !ui_svc_setting_set(UI_SET_CW_LEAD_MS, 200) &&
+	      !ui_svc_setting_set(UI_SET_CW_LEAD_MS, 650));
+	st = settings_begin();
+	st->cw_lead = 0;
+	settings_end(now);
 	st = settings_begin();
 	st->cw_wpm = 0;
 	st->cw_eff_wpm = 0;

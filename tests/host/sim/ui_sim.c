@@ -745,8 +745,9 @@ static int32_t sim_late[UI_SET_COUNT - UI_SET_RAM_COUNT];
 int32_t ui_svc_setting_get(uint8_t id)
 {
 #if CONFIG_CW_SEND
-	if ((id == UI_SET_CW_WPM || id == UI_SET_CW_TONE_HZ) && sim_late[id - UI_SET_RAM_COUNT] == 0)
-		return id == UI_SET_CW_WPM ? 20 : 800;	// stored 0 reads as the keyer's default, as ui_svc_storage.c does
+	if ((id == UI_SET_CW_WPM || id == UI_SET_CW_TONE_HZ || id == UI_SET_CW_LEAD_MS) &&
+	    sim_late[id - UI_SET_RAM_COUNT] == 0)		// stored 0 reads as the default, as ui_svc_storage.c does
+		return id == UI_SET_CW_WPM ? 20 : id == UI_SET_CW_TONE_HZ ? 800 : 600;
 #endif
 	return id >= UI_SET_RAM_COUNT && id < UI_SET_COUNT ? sim_late[id - UI_SET_RAM_COUNT] : ui_svc_ram_get(id);
 }

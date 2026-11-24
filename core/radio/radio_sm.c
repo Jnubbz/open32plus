@@ -7212,9 +7212,9 @@ static void hotspot_follow_power(radio_sm_t *sm)
 // frequency, bandwidth, power and TX subtone, with the settings' Farnsworth spacing, then tune() back to the channel ---
 
 #define CW_LEAD_MS		150	// carrier up before the first element (an ID: a hotspot or repeater input listens)
-// A message's lead-in is longer: the receiving radios are handhelds whose squelch, battery save and subtone decoder
-// open on the carrier, and 150 ms lost a message's first letter on the air (morse.md 5.4)
-#define CW_MSG_LEAD_MS		600
+// A message's lead-in is longer and set in Settings > CW (cw_msg_lead): the receivers are handhelds whose squelch,
+// battery save and subtone decoder open on the carrier. 150 ms lost a message's first letter on the air, and 600 ms
+// still did with a receiver's battery save on (morse.md 5.2)
 #define CW_TAIL_MS		150	// and after the last
 enum { CW_OFF = 0, CW_KEYING, CW_TAIL };
 enum { CW_END_SENT, CW_END_CUT, CW_END_REFUSED };	// how a keying ended (cw_ended)
@@ -7332,6 +7332,17 @@ static uint8_t cw_speed(radio_sm_t *sm, uint8_t *eff)
 	}
 	return wpm;
 }
+
+#if CONFIG_CW_SEND
+// A message's lead-in from the settings (0 or out of range: the default)
+static uint32_t cw_msg_lead(void)
+{
+	settings_t *st = &st_copy;
+	settings_read(st);
+	uint32_t ms = (uint32_t)st->cw_lead * MORSE_LEAD_MS_STEP;
+	return ms >= MORSE_LEAD_MS_MIN && ms <= MORSE_LEAD_MS_MAX ? ms : MORSE_LEAD_MS_DEFAULT;
+}
+#endif
 
 // The carrier up in FM on hz and the text queued after the lead-in at wpm (eff: Farnsworth, 0 = off): false if the
 // board refused, the keying already ended (cw_finish)
@@ -7518,7 +7529,8 @@ static void cwmsg_start(radio_sm_t *sm, uint32_t now_ms)
 	}
 	uint8_t eff;
 	uint8_t wpm = cw_speed(sm, &eff);
-	uint32_t ms = CW_MSG_LEAD_MS + morse_ms(text, n, wpm, eff) + CW_TAIL_MS;
+	uint32_t lead = cw_msg_lead();
+	uint32_t ms = lead + morse_ms(text, n, wpm, eff) + CW_TAIL_MS;
 	if (sm->view.tot_s != 0 && ms >= (uint32_t)sm->view.tot_s * 1000u) {
 		radio_cwmsg_ended(CWMSG_TOO_LONG, 0);	// the time-out never cuts a message: refused before any carrier
 		return;
@@ -7535,7 +7547,7 @@ static void cwmsg_start(radio_sm_t *sm, uint32_t now_ms)
 	sm->view.tot_warning = false;
 	ptt_stops_tx(true);		// a PTT press on a line the transmission keeps from trusting presses cuts it
 	(void)cw_begin(sm, ch->tx_hz, (radio_bw_t)ch->bw, sm->view.power, &ch->tx_tone, text, n, wpm, eff,
-		       CW_MSG_LEAD_MS, now_ms);
+		       lead, now_ms);
 }
 
 // RREQ_CW_STOP, PTT, a retune: the message being keyed is cut at once (key up, carrier off, back to the channel)
