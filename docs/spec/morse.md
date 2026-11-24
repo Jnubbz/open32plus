@@ -93,9 +93,9 @@ The text is cleaned before it is handed over (`radio_cwmsg_clean`): upper case, 
 | Start | Only from idle (`cwmsg_idle`), the APRS transmission's rules: no PTT, no reception, no scan, no hotspot, no DMR call or data, no VOX, no roger beep or burst (`busy`) | Never steps on traffic or another keying |
 | Guards | `tx_check()`, `tx_held()`, an RX-only channel or a board without `tx_tone` refuse it (`no_tx`), and `key_tx()` checks again | Every keying path shares them |
 | Length | Refused when lead + `morse_ms()` + tail is not shorter than the channel's TOT (`too_long`) | The TOT is never the thing that ends a CW message. The TOT still runs as a backstop |
-| Keying | `cw_begin()`, as the CW IDs: carrier up, 150 ms lead, the Morse on `tx_tone` / `tx_tone_key`, 150 ms tail. The view: `RS_TX`, `tx_auto`, `cw_tx` | One keyer for every CW path |
+| Keying | `cw_begin()`, as the CW IDs: carrier up, a 600 ms lead (`CW_MSG_LEAD_MS`; an ID's is 150 ms), the Morse on `tx_tone` / `tx_tone_key`, 150 ms tail. The view: `RS_TX`, `tx_auto`, `cw_tx` | One keyer for every CW path. The receivers are handhelds: squelch, battery save and a subtone decoder open on the carrier, and with 150 ms the first letter was lost on the air |
 | End | `tune()` back to the channel, as an APRS transmission ends (`sent`) | The channel exactly as before |
-| Stop | `RREQ_CW_STOP` (Back), PTT, the monitor, hotspot mode, or any request that retunes or acts on the channel (`RQ_RETUNES`, `RQ_SELECTED`): key up and carrier off at once, then `tune()` (`cut`). PTT's press and release do nothing else: press it again to talk | The user is always in control of the transmitter |
+| Stop | `RREQ_CW_STOP` (Back), PTT, the monitor, hotspot mode, or any request that retunes or acts on the channel (`RQ_RETUNES`, `RQ_SELECTED`): key up and carrier off at once, then `tune()` (`cut`). PTT's press and release do nothing else: press it again to talk. While the message keys, the radio core sets `hal_input_t.ptt_stops_tx`, so a board whose PTT line trusts no new press during a transmission ([gotchas.md](gotchas.md) 16.2) trusts one | The user is always in control of the transmitter |
 
 The handover (`radio_cwmsg.c`) holds one message: a second is refused while one is queued or keying. A request lost on
 a full queue frees it again.
@@ -113,7 +113,8 @@ a full queue frees it again.
 
 | Test | Checks |
 |---|---|
-| `radioCoreTest` | Keying "AB" (lead, element timing, tail, back to the channel), PTT cutting it without keying, stop, a channel change, every refusal, the channel's bandwidth and CTCSS, Farnsworth and tone from the settings, the UI services and settings |
+| `sharedPttTest` | A press during a transmission counts only while `ptt_stops_tx` is on |
+| `radioCoreTest` | Keying "AB" (the 600 ms lead, element timing, tail, back to the channel), PTT cutting it without keying, `ptt_stops_tx` on only while it keys, stop, a channel change, every refusal, the channel's bandwidth and CTCSS, Farnsworth and tone from the settings, the UI services and settings |
 | `morseTest` | `morse_ms()` against the keyed timelines, `radio_cwmsg_clean()` and `radio_cwmsg_expand()` |
 | `uiFlowTest` | The Messages row, `cw-compose`, `cw-send`, Back, Write..., Settings > CW |
 | Debug link | View section 39 `cw` ([debuglink.md](debuglink.md)) |

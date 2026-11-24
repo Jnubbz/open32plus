@@ -173,7 +173,9 @@ static void p_led(uint8_t which, bool on) { hw.led[which] = on; }
 
 static bool ptt_stuck;
 static bool p_ptt_stuck(void) { return ptt_stuck; }
-static const hal_input_t fake_input = { .ptt_line_stuck = p_ptt_stuck };
+static bool ptt_stop_only;	// hal_input_t.ptt_stops_tx as last set
+static void p_ptt_stops_tx(bool on) { ptt_stop_only = on; }
+static const hal_input_t fake_input = { .ptt_line_stuck = p_ptt_stuck, .ptt_stops_tx = p_ptt_stops_tx };
 
 // ---- fake PCM audio and vocoder (core/dmr/ambe runs on them) ----
 static struct {
@@ -4044,21 +4046,23 @@ static void test_cw_message(void)
 	uint32_t t0 = now;
 
 	// "ab" keyed as "AB" at the default 20 wpm on Simplex: A .- (5 units), the character gap (3), B -... (9): 17 units,
-	// 1020 ms after the 150 ms lead; key down 10 units, 600 ms; carrier down after the 150 ms tail
+	// 1020 ms after the 600 ms lead (a message's: the first letter reaches a handheld whose squelch opens late); key
+	// down 10 units, 600 ms; carrier down after the 150 ms tail. A PTT press during it counts on a shared PTT line
 	cw_send("ab");
 	CHECK(sm.view.state == RS_TX && sm.view.cw_tx && sm.view.tx_auto && hw.led[LED_RED] && !hw.audio);
+	CHECK(ptt_stop_only);
 	CHECK(hw.tx_calls == tx0 + 1 && hw.tx_hz == 146520000 && hw.tx_tone.type == TONE_NONE && tone.hz == 800);
 	radio_cwmsg_get(&v);
 	CHECK(v.active && !radio_cwmsg_put("again"));	// one message at a time
-	run(1500);
+	run(2000);
 	CHECK(tone.changes == 12);		// six elements
-	CHECK(tone.first_down_ms >= t0 + 150 && tone.first_down_ms <= t0 + 160);
+	CHECK(tone.first_down_ms >= t0 + 600 && tone.first_down_ms <= t0 + 610);
 	CHECK(tone.last_up_ms - tone.first_down_ms >= 1010 && tone.last_up_ms - tone.first_down_ms <= 1030);
 	CHECK(tone.down_ms >= 590 && tone.down_ms <= 610);
 	radio_cwmsg_get(&v);
-	CHECK(!v.active && v.sent == v0.sent + 1 && v.last == CWMSG_SENT && v.last_ms >= 1310 && v.last_ms <= 1340);
+	CHECK(!v.active && v.sent == v0.sent + 1 && v.last == CWMSG_SENT && v.last_ms >= 1760 && v.last_ms <= 1790);
 	CHECK(sm.view.state == RS_IDLE && !sm.view.cw_tx && !sm.cw_msg && sm.cw_phase == 0 && tone.hz == 0);
-	CHECK(hw.tx_off_calls == off0 + 1 && !hw.led[LED_RED] && hw.rx_hz == 146520000);
+	CHECK(hw.tx_off_calls == off0 + 1 && !hw.led[LED_RED] && hw.rx_hz == 146520000 && !ptt_stop_only);
 
 	// PTT cuts it: carrier off at once, and the press doesn't key the microphone. The next press does
 	cw_send("PARIS PARIS");
@@ -4069,11 +4073,11 @@ static void test_cw_message(void)
 	req(RREQ_PTT, 1);
 	CHECK(sm.view.state == RS_IDLE && !sm.view.cw_tx && tone.hz == 0 && hw.tx_off_calls == off0 + 1 &&
 	      hw.tx_calls == tx0);
-	CHECK(cw_last() == CWMSG_CUT);
+	CHECK(cw_last() == CWMSG_CUT && !ptt_stop_only);
 	req(RREQ_PTT, 0);
 	CHECK(sm.view.state == RS_IDLE && hw.tx_off_calls == off0 + 1);
 	req(RREQ_PTT, 1);
-	CHECK(sm.view.state == RS_TX && !sm.view.cw_tx && hw.tx_calls == tx0 + 1);
+	CHECK(sm.view.state == RS_TX && !sm.view.cw_tx && hw.tx_calls == tx0 + 1 && !ptt_stop_only);
 	req(RREQ_PTT, 0);
 	run(50);
 
@@ -4081,7 +4085,7 @@ static void test_cw_message(void)
 	cw_send("PARIS");
 	run(300);
 	req(RREQ_CW_STOP, 0);
-	CHECK(sm.view.state == RS_IDLE && tone.hz == 0 && cw_last() == CWMSG_CUT);
+	CHECK(sm.view.state == RS_IDLE && tone.hz == 0 && cw_last() == CWMSG_CUT && !ptt_stop_only);
 	cw_send("PARIS");
 	run(300);
 	req(RREQ_CH_STEP, 1);
@@ -4148,7 +4152,7 @@ static void test_cw_message(void)
 	cw_send("E");
 	CHECK(hw.tx_hz == 146340000 && hw.tx_bw == RADIO_BW_25K && hw.tx_tone.type == TONE_CTCSS &&
 	      hw.tx_tone.value == 1000);
-	run(500);
+	run(1000);
 	CHECK(cw_last() == CWMSG_SENT && sm.view.state == RS_IDLE && hw.rx_hz == 146940000);
 
 	// Farnsworth spacing from the settings: "E E" at 20 wpm characters, 10 wpm overall: dot, a 1525 ms word gap, dot
@@ -4160,7 +4164,7 @@ static void test_cw_message(void)
 	memset(&tone, 0, sizeof(tone));
 	cw_send("E E");
 	CHECK(tone.hz == 600);
-	run(2500);
+	run(3000);
 	CHECK(tone.changes == 4 && tone.down_ms >= 110 && tone.down_ms <= 130);
 	CHECK(tone.last_up_ms - tone.first_down_ms >= 1635 && tone.last_up_ms - tone.first_down_ms <= 1655);
 	CHECK(cw_last() == CWMSG_SENT);

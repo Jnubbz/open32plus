@@ -878,7 +878,9 @@ picked up on a coiled cable, also reads as a press: the line goes low with flagg
 the press keeps the radio keyed, a latch (measured: a minute keyed, nothing touched). Rule: while the radio
 transmits, no new press starts on the shared line, and a held press ends at a flagged character after its own break,
 since a grounded line receives nothing. RF that holds a released line steadily low, with no character, still reads
-as held, and the transmit time-out ends it.
+as held, and the transmit time-out ends it. The exception is a transmission a press only stops (a CW message,
+`hal_input_t.ptt_stops_tx`): the gate then trusts a new press, since a false one ends the transmission and keys
+nothing. Without it, PTT could not stop a CW message on a radio with a shared line (seen on the air).
 
 **16.3 PTT on an empty mic jack.**
 Symptom: a radio powered on without its hand mic transmitted at once (RadioFoundry, issue #230). Cause: the mic's PTT

@@ -174,6 +174,22 @@ int main(void)
 	CHECK(press_after(&r, true, 790000, 860010, 10, 100) == SHARED_PTT_HOLD_MS);
 	CHECK(!gate(&r, false, true, 790000, 860200));
 
+	// A transmission a press only stops (a CW message, hal_input_t.ptt_stops_tx): while the radio keys it, a new press
+	// counts, after the same hold, and host data still isn't one. Off again, the radio's RF on the line is not a press
+	shared_ptt_t w = { 0 };
+	CHECK(!gate(&w, false, true, 0, 870000));
+	shared_ptt_stop_only(&w, true);
+	keyed = true;
+	CHECK(!gate(&w, false, true, 0, 870010));
+	CHECK(press_after(&w, true, 0, 870020, 10, 100) == SHARED_PTT_HOLD_MS);
+	CHECK(!gate(&w, false, true, 0, 870200));
+	CHECK(!gate(&w, true, true, 870295, 870300));	// a host byte: data
+	shared_ptt_stop_only(&w, false);
+	CHECK(!gate(&w, false, true, 870295, 870400));
+	CHECK(press_after(&w, true, 870295, 870410, 10, 200) == NEVER);
+	keyed = false;
+	CHECK(!gate(&w, false, true, 870295, 870700));
+
 	// A press held when the radio keys stays held while it transmits: the key grounds the line, nothing arrives. Its own
 	// break, and the key's bounce, while it settles, are not noise
 	shared_ptt_t k = { 0 };

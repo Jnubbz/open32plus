@@ -101,6 +101,10 @@ typedef struct {
 	// The PTT line is stuck low and only a power cycle can release it (docs/spec/gotchas.md 16.5). The core flashes the
 	// LEDs to ask for one. NULL: the board can't tell
 	bool (*ptt_line_stuck)(void);
+	// The radio core starts (true) or ends (false) a transmission that a PTT press only stops, never keys or holds (a
+	// CW message, docs/spec/morse.md 5). A board that trusts no new press while it transmits (a PTT line the RF can pull
+	// low) trusts one while this is on: a false press can only end the transmission. NULL: presses always count
+	void (*ptt_stops_tx)(bool on);
 } hal_input_t;
 
 #endif
