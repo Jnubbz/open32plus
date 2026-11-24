@@ -353,6 +353,7 @@
  "screen.messages_empty": "Messaggi, vuoto",
  "screen.cw_compose": "Invia CW: messaggi predefiniti",
  "screen.cw_send": "Invio CW",
+ "screen.cw_decode": "Decodifica CW",
  "screen.messages": "Messaggi",
  "screen.position": "Posizione (APRS)",
  "screen.aprs_station": "Dettagli di una stazione ascoltata",

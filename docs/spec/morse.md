@@ -125,3 +125,64 @@ a full queue frees it again.
 
 `tests/host/morseTest.c`: punctuation, prosigns, Farnsworth gaps and keyed timelines, and a 160 character buffer.
 `tests/host/mmdvmTest.c`: PARIS at 20 wpm, the code table and keying over time for the CW ID. CW messages: 5.4.
+The decoder: 7.5.
+
+## 7. Decoding CW (`CONFIG_CW_DECODE`)
+
+Messages > Decode CW shows Morse decoded from the FM channel: MCW, a keyed tone in FM audio, as CW messages send it.
+It decodes nothing on HF: the radios receive FM.
+
+### 7.1 What the user sees
+
+| Item | Behavior |
+|---|---|
+| Messages | "Decode CW", the last row, after Send CW |
+| `cw-decode` | The newest text above a status row: Listening, Hearing (with the tone and speed learned, "800 Hz 18 wpm"), Needs an FM channel, Paused: transmitting or APRS, This radio can't decode. Older text scrolls off the top a word at a time |
+| Keys | **#** clears the text. **Back** closes the screen, and the decoder stops |
+| Text | As received, never translated. An unknown character is `*`; SK is `<SK>`; AR, BT and KN read as `+`, `=` and `(` |
+
+### 7.2 Where the audio comes from
+
+| Rule | Behavior | Why |
+|---|---|---|
+| Path | The board's received FM audio, 8 kHz (`hal_afsk_t` `rx_start` / `rx_read` / `rx_stop`, APRS receive's path). A board without it, or at another rate: This radio can't decode | One path for both |
+| When | While the screen is open and the channel is FM, not while transmitting or in hotspot mode | Nothing runs, and no battery goes, unless asked |
+| APRS | On the APRS receive frequency APRS keeps the audio (Paused) | It was there first |
+| Squelch | Only audio with the squelch open is decoded; as it closes, a character in progress and a word space come out (`morse_dec_flush`) | Noise between overs is not Morse |
+| Retune | Off FM, or onto the APRS frequency, the path is let go before the board changes mode (`radio_cwdec_release`) | On the HR_C7000 a P25, NXDN or YSF engine can't start while the audio is held |
+| Battery save | Off while the decoder runs | A sleeping receiver loses the first letters |
+| Text | The newest 159 characters in `radio_cwdec.c`, written by the radio task, read by the UI under a sequence count | No lock between the tasks |
+
+### 7.3 The decoder (`core/radio/morse_decode.c`)
+
+| Stage | How | Why |
+|---|---|---|
+| Blocks | 80 samples (10 ms) under a Hann window, 13 Goertzel bins from 400 to 1000 Hz, 50 Hz apart (100 Hz wide) | The window keeps a tone between two bins in the bins around it, so bins more than 4 steps away measure the noise |
+| Tone | The strongest bin locks when it is 4 times the far bins' mean for 3 blocks with the key up; a bin within 2 steps of the lock is the same tone. A lock moves only between elements | MCW at any pitch; a second station takes over between overs |
+| Key | Down above 3/5 of the way from the key-up level to the key-down level, up below 2/5, and only with the key-down level at least 3 times the key-up one. Each block's level teaches the state it was decided in | Follows a fading signal without a fixed threshold |
+| Speed | The last 8 marks: when the longest is twice the shortest they split into dots and dashes; while they are all alike, a mark is classed against the lengths learned and the two kept 1:3. 25 to 250 ms dots (48 to under 5 wpm), 20 wpm to start | Learns a speed far from the start in a few elements |
+| Characters | A gap over 2 dots ends one; its marks are classed when it ends, by the lengths learned then | The first character comes out right once its own dots and dashes told them apart |
+| Words | The last 8 gaps that ended a character: when the longest is 1.5 times the shortest they split into character and word gaps, and the word threshold is halfway. Until then 5 dots, or 5/3 of the character gap when longer | Farnsworth spacing: only the first word's spacing is wrong |
+| Overs | `morse_dec_flush` (the squelch closed) forgets the marks and gaps; the lengths stay as the first guess | Another station, another speed |
+
+Measured on the host (`morseTest`, synthetic MCW with 5 ms raised-cosine edges): clean copy from 5 to 35 wpm and at
+725 Hz, between bins; text intact with the tone 1 dB over white noise in the 4 kHz band; with Farnsworth 20/10 the
+first word misspaced, the rest whole.
+
+### 7.4 Size and switches
+
+| Item | Cost |
+|---|---|
+| `CONFIG_CW_DECODE` | `config/features.mk` and `core/config.h`, = `APRS_RX` (its board path); [feature-matrix.md](../feature-matrix.md) has the flash figure |
+| RAM | About 860 bytes: the decoder state, the text in the radio core, a block of samples, and copies of the text for the screen and the debug link |
+| CPU | 13 Goertzel bins per sample at 8 kHz, about 100,000 multiplies a second, only while the screen is open |
+
+### 7.5 Tests and debugging
+
+| Test | Checks |
+|---|---|
+| `morseTest` | Every character's code back to its character; decoding at 5, 20 and 35 wpm, between bins, with Farnsworth, in noise, a second station after the squelch closed; nothing from noise alone |
+| `aprsRadioTest` | Off until wanted, yields to APRS on its frequency, starts on another FM channel, decodes only with the squelch open and flushes as it closes, no battery saving meanwhile, # clears, closing stops the audio |
+| `uiFlowTest` | The Messages row, `cw-decode` with the status and text, #, Back |
+| Debug link | `cw.dec_*` in view section 39 ([debuglink.md](debuglink.md)) |
+| HIL | `tests/hil/features.toml` `cw_decode` |

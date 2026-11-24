@@ -641,6 +641,78 @@ static const ui_scr_def_t cw_send_screen = {
 };
 #endif
 
+#if CONFIG_CW_DECODE
+// ======================= The CW decoder (docs/spec/morse.md 7) =======================
+// Open, the radio core decodes Morse from the FM channel while the squelch is open; the status row says how it goes and
+// the newest text fills the space above it. # clears the text. Decoded text is shown as received, never translated
+
+static uint16_t cw_decode_count(void) { return 1; }
+
+static void cw_decode_item(uint16_t i, ui_item_t *it)
+{
+	(void)i;
+	ui_cwdec_t c;
+	ui_svc_cw_decode_get(&c, NULL, 0);
+	tr_id_t s = c.state == UI_CWDEC_HEARING ? TRN(CWDEC_STATE_HEARING, "Hearing") :
+		c.state == UI_CWDEC_NOT_FM ? TRN(CWDEC_WHY_NOT_FM, "Needs an FM channel") :
+		c.state == UI_CWDEC_BUSY ? TRN(CWDEC_WHY_BUSY, "Paused: transmitting or APRS") :
+		c.state == UI_CWDEC_NO_PATH ? TRN(CWDEC_WHY_NO_PATH, "This radio can't decode") :
+		TRN(CWDEC_STATE_LISTENING, "Listening");
+	str_copy(it->label, sizeof it->label, tr(s));
+	if (c.hz != 0 && (c.state == UI_CWDEC_HEARING || c.state == UI_CWDEC_LISTENING)) {
+		sbuf_t b;
+		sb_init(&b, it->value, sizeof it->value);
+		sb_u32(&b, c.hz, 1);
+		sb_str(&b, " Hz ");
+		sb_u32(&b, c.wpm, 1);
+		sb_str(&b, " wpm");
+	}
+	if (c.state == UI_CWDEC_NOT_FM || c.state == UI_CWDEC_NO_PATH || c.state == UI_CWDEC_BUSY)
+		it->flags |= UI_ITEM_WARN;
+}
+
+// The newest text that fits above the status row: whole words dropped from its start until it does
+static const char *cw_decode_body(void)
+{
+	static char text[UI_CWDEC_TEXT_MAX];
+	ui_cwdec_t c;
+	ui_svc_cw_decode_get(&c, text, sizeof text);
+	ui_list_t l;
+	memset(&l, 0, sizeof l);
+	l.prefix = TR(CWDEC_TITLE, "Decode CW");
+	l.count = 1;
+	const char *t = text;
+	for (int tries = 0; *t && tries < 40; tries++) {
+		l.body = t;
+		if (ui_list_body_fits(&ui_st, &l))
+			break;
+		const char *sp = strchr(t, ' ');
+		t = sp != NULL ? sp + 1 : t + strlen(t) / 2;
+	}
+	return t;
+}
+
+static bool cw_decode_key(const input_event_t *ev)
+{
+	if (ev->action == ACT_CONTEXT && ev->gesture == GESTURE_PRESS) {
+		ui_svc_cw_decode_clear();
+		ui_dirty();
+		return true;
+	}
+	return false;
+}
+
+static void cw_decode_enter(void) { ui_svc_cw_decode(true); }
+static void cw_decode_leave(void) { ui_svc_cw_decode(false); }
+
+static const ui_scr_def_t cw_decode_screen = {
+	.name = "cw-decode", .flags = SF_LIST | SF_FIELD, .prefix = TRN(CWDEC_TITLE, "Decode CW"),
+	.hint = TRN(CWDEC_HINT, "# clear  Back"),
+	.count = cw_decode_count, .item = cw_decode_item, .body = cw_decode_body, .key = cw_decode_key,
+	.enter = cw_decode_enter, .leave = cw_decode_leave,
+};
+#endif
+
 // ======================= Contacts (type to find) =======================
 
 #if CONFIG_DMR
@@ -866,7 +938,7 @@ static bool aprs_new_available(void)
 #endif
 }
 
-// The rows after the inboxes: New APRS message, then Send CW
+// The rows after the inboxes: New APRS message, then Send CW and Decode CW
 static uint16_t msgs_inbox_rows(void)
 {
 	return ui_svc_msg_count() + ui_svc_aprs_msg_count() + (aprs_new_available() ? 1u : 0u);
@@ -874,7 +946,7 @@ static uint16_t msgs_inbox_rows(void)
 
 static uint16_t msgs_count(void)
 {
-	return msgs_inbox_rows() + (CONFIG_CW_SEND ? 1u : 0u);
+	return msgs_inbox_rows() + (CONFIG_CW_SEND ? 1u : 0u) + (CONFIG_CW_DECODE ? 1u : 0u);
 }
 
 // Both inboxes are newest first. Merge their small RAM lists by age for the shared Messages screen.
@@ -910,6 +982,10 @@ static void msgs_item(uint16_t i, ui_item_t *it)
 {
 	if (CONFIG_CW_SEND && i == msgs_inbox_rows()) {
 		str_copy(it->label, sizeof it->label, TR(MSG_ROW_SEND_CW, "Send CW"));
+		return;
+	}
+	if (CONFIG_CW_DECODE && i == msgs_inbox_rows() + (CONFIG_CW_SEND ? 1u : 0u)) {
+		str_copy(it->label, sizeof it->label, TR(MSG_ROW_DECODE_CW, "Decode CW"));
 		return;
 	}
 	uint16_t dmr_count = ui_svc_msg_count();
@@ -962,6 +1038,12 @@ static void msgs_select(uint16_t i, bool hold)
 #if CONFIG_CW_SEND
 	if (i == msgs_inbox_rows()) {
 		ui_push(SCR_CW_COMPOSE, 0);
+		return;
+	}
+#endif
+#if CONFIG_CW_DECODE
+	if (i == msgs_inbox_rows() + (CONFIG_CW_SEND ? 1u : 0u)) {
+		ui_push(SCR_CW_DECODE, 0);
 		return;
 	}
 #endif
@@ -8376,6 +8458,9 @@ const ui_scr_def_t *const ui_scr[SCR_COUNT] = {
 	[SCR_MESSAGES] = &messages_screen, [SCR_MESSAGE] = &message_screen, [SCR_COMPOSE] = &compose_screen,
 #if CONFIG_CW_SEND
 	[SCR_CW_COMPOSE] = &cw_compose_screen, [SCR_CW_SEND] = &cw_send_screen,
+#endif
+#if CONFIG_CW_DECODE
+	[SCR_CW_DECODE] = &cw_decode_screen,
 #endif
 	[SCR_MESSAGE_READ] = &message_read_screen,
 	[SCR_RECENT] = &recent_screen, [SCR_ZONES] = &channels_screen, [SCR_ZONE] = &zone_screen,

@@ -66,6 +66,7 @@
 #endif
 #if CONFIG_CW_SEND
 #include "radio/radio_cwmsg.h"	// the CW message handover (docs/spec/morse.md 5)
+#include "radio/radio_cwdec.h"	// the CW decoder (docs/spec/morse.md 7)
 #endif
 #if CONFIG_SFR_CWID
 static void cw_cancel(radio_sm_t *sm);
@@ -905,6 +906,11 @@ static void tune(radio_sm_t *sm, uint32_t now_ms)
 	// the next tune: the channel was left with no engine, and PTT refused ("NO TX") until a retune or power cycle
 	if (aprs_rx_listening() && !(sm->view.ch.mode == RADIO_MODE_FM && sm->view.ch.rx_hz == aprs_rx_freq())) {
 		aprs_rx_release();
+	}
+#endif
+#if CONFIG_CW_DECODE
+	if (sm->view.ch.mode != RADIO_MODE_FM || sm->view.ch.rx_hz == aprs_rx_freq()) {
+		radio_cwdec_release();	// the same audio, for the same reason; APRS has it first on its frequency
 	}
 #endif
 	if (radio_listen_band(sm->view.ch.rx_hz)) {
@@ -9669,6 +9675,11 @@ static bool save_allowed(const radio_sm_t *sm, uint32_t now_ms)
 		return false;	// a sleeping receiver misses packets
 	}
 #endif
+#if CONFIG_CW_DECODE
+	if (radio_cwdec_running()) {
+		return false;	// ... and the first letters
+	}
+#endif
 #if CONFIG_SCAN
 	if (scan_on(&sm->scan)) {
 		return false;
@@ -9726,6 +9737,25 @@ static bool save_poll(radio_sm_t *sm, uint32_t now_ms)
 		return true;
 	}
 	return false;
+}
+#endif
+
+#if CONFIG_CW_DECODE
+// The CW decoder (radio_cwdec.c, morse.md 7): the received FM audio while the Decode CW screen is open, decoded while
+// the squelch is open. APRS listening on this frequency has the same audio first
+static void cwdec_poll(radio_sm_t *sm, uint32_t now_ms)
+{
+	radio_cwdec_in_t in = {
+		.fm = sm->view.ch.mode == RADIO_MODE_FM && !sm->hotspot,
+		.tx = sm->view.state == RS_TX,
+		.rx_open = sm->view.state == RS_RX,
+	};
+#if CONFIG_APRS_RX
+	in.busy = aprs_rx_listening() || (aprs_rx_freq() != 0 && aprs_rx_freq() == sm->view.ch.rx_hz);
+#endif
+	if (radio_cwdec_service(&in, now_ms)) {
+		changed(sm);
+	}
 }
 #endif
 
@@ -9907,6 +9937,9 @@ void radio_sm_poll(radio_sm_t *sm, uint32_t now_ms)
 #endif
 #if CONFIG_APRS
 	aprs_poll(sm, now_ms);	// before battery saving: beacons are due while the receiver sleeps too
+#endif
+#if CONFIG_CW_DECODE
+	cwdec_poll(sm, now_ms);	// before battery saving: the decoder keeps the receiver awake
 #endif
 	// The reference trim changed (RREQ_RETUNE): one tune once it has held still, so stepping it drops a reception once,
 	// not at every step. It waits for an APRS job; while transmitting or a hotspot, for the end of it

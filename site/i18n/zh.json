@@ -353,6 +353,7 @@
  "screen.messages_empty": "消息，空",
  "screen.cw_compose": "发送 CW：预设消息",
  "screen.cw_send": "正在发送 CW",
+ "screen.cw_decode": "正在解码 CW",
  "screen.messages": "消息",
  "screen.position": "位置（APRS）",
  "screen.aprs_station": "已收听电台详情",

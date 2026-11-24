@@ -1808,6 +1808,41 @@ msgid "Back stop"
 msgstr "Indietro ferma"
 
 #: core/ui/ui_menus.c
+msgctxt "CWDEC_STATE_HEARING"
+msgid "Hearing"
+msgstr "In ricezione"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_WHY_NOT_FM"
+msgid "Needs an FM channel"
+msgstr "Richiede un canale FM"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_WHY_BUSY"
+msgid "Paused: transmitting or APRS"
+msgstr "In pausa: TX o APRS"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_WHY_NO_PATH"
+msgid "This radio can't decode"
+msgstr "Questa radio non decodifica"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_STATE_LISTENING"
+msgid "Listening"
+msgstr "In ascolto"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_TITLE"
+msgid "Decode CW"
+msgstr "Decodifica CW"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_HINT"
+msgid "# clear  Back"
+msgstr "# cancella  Indietro"
+
+#: core/ui/ui_menus.c
 msgctxt "VALUE_NO_NAME"
 msgid "(no name)"
 msgstr "(senza nome)"
@@ -1841,6 +1876,11 @@ msgstr "Contatti: non in questa build"
 msgctxt "MSG_ROW_SEND_CW"
 msgid "Send CW"
 msgstr "Invia CW"
+
+#: core/ui/ui_menus.c
+msgctxt "MSG_ROW_DECODE_CW"
+msgid "Decode CW"
+msgstr "Decodifica CW"
 
 #: core/ui/ui_menus.c
 msgctxt "MSG_ROW_NEW_APRS"

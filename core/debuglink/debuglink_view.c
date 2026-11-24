@@ -19,6 +19,7 @@
 #include "storage/storage.h"
 #if CONFIG_CW_SEND
 #include "radio/radio_cwmsg.h"
+#include "radio/radio_cwdec.h"
 #endif
 #if CONFIG_VOICE_CAPTURE
 #include "dmr/ambe/ambeVoice.h"
@@ -588,6 +589,20 @@ static void cw_section(const radio_view_t *v, dl_text_t *t)
 #else
 	(void)v;
 	dl_text(t, "cw.built=0\n");
+#endif
+#if CONFIG_CW_DECODE
+	// The decoder (morse.md 7): its state, the tone and speed it learned, the text (spaces as '_')
+	static const char *const states[] = { "off", "listening", "hearing", "not_fm", "busy", "no_path" };
+	radio_cwdec_view_t d;
+	static char text[CWDEC_TEXT_MAX];
+	radio_cwdec_get(&d, text, sizeof text);
+	for (char *p = text; *p; p++) {
+		*p = *p == ' ' ? '_' : *p;
+	}
+	dl_text(t, "cw.dec_state=%s\ncw.dec_hz=%u\ncw.dec_wpm=%u\ncw.dec_chars=%u\ncw.dec_text=%s\n",
+		d.state < sizeof(states) / sizeof(states[0]) ? states[d.state] : "?", d.hz, d.wpm, (unsigned)d.chars, text);
+#else
+	dl_text(t, "cw.dec_state=none\n");
 #endif
 }
 

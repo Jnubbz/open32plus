@@ -47,6 +47,7 @@ is `tools/bringup.py list --radio <id>`.
 | `tone_burst_key` | not recorded | not recorded | not recorded | not recorded | not recorded | not recorded | not recorded | partial, needs re-run |
 | `dtmf` | not recorded | not recorded | not recorded | not recorded | not written | not recorded | pass, needs re-run | ✕ |
 | `cw_send` | not recorded | not recorded | not recorded | not recorded | off | not recorded | not recorded | not recorded |
+| `cw_decode` | not recorded | not recorded | not recorded | off | off | not recorded | not recorded | not recorded |
 | `vox` | not written | not recorded | not recorded | not written | not recorded | not recorded | pass, needs re-run | not written |
 | `battery_save` | pass (seed) | pass (seed) | not recorded | not recorded | not recorded | not recorded | pass, needs re-run | partial, needs re-run |
 | `am_rx` | not recorded | ✕ | not recorded | ✕ | ✕ | ✕ | ✕ | ✕ |
@@ -275,6 +276,7 @@ clock`; ? = not known yet). No driver reads the clock yet ([radio-features.md](s
 | `FM_TX_TONES` | ● | ● | ● | ● | … | ● | ● | ● |
 | `DTMF` | ● | ● | ● | ● | … | ● | ● | ✕ |
 | `CW_SEND` | ● | ● | ● | ● | ○ | ● | ● | ● |
+| `CW_DECODE` | ● | ● | ● | ○ | ○ | ● | ● | ● |
 | `RX_EXT` | ● | ● | ● | ● | … | ● | … | ● |
 | `VOX` | … | ● | ● | … | ● | ● | ● | … |
 | `REF_TRIM` | ● | ● | ● | ● | ● | ● | ● | ● |
@@ -323,6 +325,7 @@ clock`; ? = not known yet). No driver reads the clock yet ([radio-features.md](s
 | FM TX tones: roger beep, 1750 Hz burst | `FM_TX_TONES` | 568 | — | MD-380: TX tone path not written |
 | DTMF transmit from the keys | `DTMF` | 920 | — | MD-380: TX tone path not written |
 | CW messages: canned or typed text keyed as Morse on an FM channel, Settings > CW | `CW_SEND` | 2,864 | — | MD-380: TX tone path not written. DM-1701 figure (2026-11-24). On the air with a DM-32UV (2026-11-24, [its bring-up](testing/dm32-bringup.md#14-cw-messages)) |
+| CW decoder: Morse from the FM channel shown as text, Messages > Decode CW | `CW_DECODE` | 3,476 | — | Needs APRS_RX's received-audio path. DM-1701 figure (2026-11-24), untested on air |
 | FM VOX | `VOX` | 496 | 1,064 |  |
 | Receiver battery saver | `BATTERY_SAVE` | 296 | 740 |  |
 | Frequency trim, Settings > Advanced | `REF_TRIM` | 2,156 | 2,232 | Figures from tools/ci.sh (2026-10-30); the hook on each radio, the page and the setting |

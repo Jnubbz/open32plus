@@ -1808,6 +1808,41 @@ msgid "Back stop"
 msgstr "Retour arrêter"
 
 #: core/ui/ui_menus.c
+msgctxt "CWDEC_STATE_HEARING"
+msgid "Hearing"
+msgstr "Réception"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_WHY_NOT_FM"
+msgid "Needs an FM channel"
+msgstr "Demande un canal FM"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_WHY_BUSY"
+msgid "Paused: transmitting or APRS"
+msgstr "En pause : TX ou APRS"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_WHY_NO_PATH"
+msgid "This radio can't decode"
+msgstr "Cette radio ne décode pas"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_STATE_LISTENING"
+msgid "Listening"
+msgstr "Écoute"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_TITLE"
+msgid "Decode CW"
+msgstr "Décoder CW"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_HINT"
+msgid "# clear  Back"
+msgstr "# effacer  Retour"
+
+#: core/ui/ui_menus.c
 msgctxt "VALUE_NO_NAME"
 msgid "(no name)"
 msgstr "(sans nom)"
@@ -1841,6 +1876,11 @@ msgstr "Contacts indispo."
 msgctxt "MSG_ROW_SEND_CW"
 msgid "Send CW"
 msgstr "Envoyer CW"
+
+#: core/ui/ui_menus.c
+msgctxt "MSG_ROW_DECODE_CW"
+msgid "Decode CW"
+msgstr "Décoder CW"
 
 #: core/ui/ui_menus.c
 msgctxt "MSG_ROW_NEW_APRS"

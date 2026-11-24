@@ -48,6 +48,14 @@ typedef struct {
 #else
 #define FLOW_CW_GROUP_UP	""
 #endif
+// Messages' last rows: Send CW, then Decode CW where it is built; up from the top reaches Send CW in this many
+#if CONFIG_CW_DECODE
+#define TO_SEND_CW	"up up"
+#define SEND_CW_UPS	2
+#else
+#define TO_SEND_CW	"up"
+#define SEND_CW_UPS	1
+#endif
 // 143 characters (UI_MSG_TEXT_MAX), the last word LAST
 #define LONG_TEXT	"Your_Special_Configuration_is:_Active_SMS:_LONG_SMS_Delay:_2.5_s_Retries:_3_Language:_English_" \
 	"Time_zone:_UTC_Units:_metric_Echo:_off_End_LAST"
@@ -1072,17 +1080,25 @@ static const flow_t flows[] = {
 #if CONFIG_CW_SEND
 	// CW messages (docs/spec/morse.md 5): Messages > Send CW (the last row), canned messages with {CALL}, the status
 	{ "C Messages offers Send CW", "", "ok 2", "shows=Send_CW", 2, false },
-	{ "C Send CW opens the CW composer", "ok 2", "up ok", "screen=cw-compose shows=QRZ?_DE_N0CALL_K", 2, false },
-	{ "C a canned CW message sends", "ok 2 up ok", "ok",
+#if CONFIG_CW_DECODE
+	// The CW decoder (morse.md 7): Messages > Decode CW, the last row; the sim hears a station at 800 Hz, 18 wpm
+	{ "C Messages offers Decode CW", "", "ok 2", "shows=Decode_CW", 2, false },
+	{ "C Decode CW shows what it hears", "ok 2", "up ok", "screen=cw-decode shows=Hearing shows=800_Hz shows=NEWINGTON", 2,
+	  false },
+	{ "C # clears the decoded text", "ok 2 up ok", "ctx", "screen=cw-decode shows=Hearing", 1, false },
+	{ "C Back from Decode CW returns to Messages", "ok 2 up ok", "back", "screen=messages", 1, false },
+#endif
+	{ "C Send CW opens the CW composer", "ok 2", TO_SEND_CW " ok", "screen=cw-compose shows=QRZ?_DE_N0CALL_K", 1 + SEND_CW_UPS, false },
+	{ "C a canned CW message sends", "ok 2 " TO_SEND_CW " ok", "ok",
 	  "screen=cw-send sent=1 text=CQ_CQ_CQ_DE_N0CALL_N0CALL_K shows=Sending_CW...", 1, false },
-	{ "C Back stops a CW message and returns to the CW list", "ok 2 up ok ok", "back", "screen=cw-compose", 1, false },
-	{ "C Back from a written CW message returns to the CW list", "ok 2 up ok up ok 2 ok", "back",
+	{ "C Back stops a CW message and returns to the CW list", "ok 2 " TO_SEND_CW " ok ok", "back", "screen=cw-compose", 1, false },
+	{ "C Back from a written CW message returns to the CW list", "ok 2 " TO_SEND_CW " ok up ok 2 ok", "back",
 	  "screen=cw-compose", 1, false },
-	{ "C Back from the CW list returns to Messages", "ok 2 up ok", "back", "screen=messages", 1, false },
-	{ "C Write... opens the message editor", "ok 2 up ok", "up ok", "screen=message-text", 2, false },
+	{ "C Back from the CW list returns to Messages", "ok 2 " TO_SEND_CW " ok", "back", "screen=messages", 1, false },
+	{ "C Write... opens the message editor", "ok 2 " TO_SEND_CW " ok", "up ok", "screen=message-text", 2, false },
 	// Morse has no case: the CW editor's letter keys skip lower case (2: A B C 2, then A again) and # skips abc
-	{ "C CW editor types capitals only", "ok 2 up ok up ok", "2 2 2 2 2 ok", "screen=cw-send text=A", 6, false },
-	{ "C CW editor # skips abc", "ok 2 up ok up ok", "ctx ctx 2 ok", "screen=cw-send text=A", 4, false },
+	{ "C CW editor types capitals only", "ok 2 " TO_SEND_CW " ok up ok", "2 2 2 2 2 ok", "screen=cw-send text=A", 6, false },
+	{ "C CW editor # skips abc", "ok 2 " TO_SEND_CW " ok up ok", "ctx ctx 2 ok", "screen=cw-send text=A", 4, false },
 	{ "C the text editor keeps lower case elsewhere", "5 6 3 ctx 3 down down down down ok", "ctx ctx 2",
 	  "screen=message-text shows=abc", 3, false },
 	{ "C Settings > CW before Signaling tones", "ok 7", "up up up ok", "screen=group shows=Farnsworth shows=800_Hz", 4, false },

@@ -8,6 +8,9 @@
 #include <string.h>
 #include "radio/morse.h"
 #include "radio/radio_cwmsg.h"
+#include "radio/morse_decode.h"
+#include <math.h>
+#include <stdlib.h>
 
 static int failures;
 #define CHECK(cond) do { if (!(cond)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); failures++; } } while (0)
@@ -188,6 +191,129 @@ static void test_cwmsg_text(void)
 	CHECK(v.last == CWMSG_EMPTY && !v.active);
 }
 
+
+// ---- The decoder (morse_decode.c, morse.md 7): MCW audio made with the keyer itself, 8 kHz, decoded back ----
+
+static uint32_t noise_seed = 12345u;
+
+static double gauss(void)
+{
+	double u = 0;
+	for (int i = 0; i < 12; i++) {
+		noise_seed = noise_seed * 1103515245u + 12345u;
+		u += (double)((noise_seed >> 8) & 0xFFFF) / 65536.0;
+	}
+	return u - 6.0;		// about unit variance
+}
+
+// text keyed at wpm (eff: Farnsworth, 0 off) as a hz tone of amp with 5 ms edges and noise of sigma, after lead_ms of
+// noise alone; decoded into out
+static void mcw_decode(const char *text, uint8_t wpm, uint8_t eff, uint16_t hz, double amp, double sigma,
+		       uint32_t lead_ms, char *out, size_t max, morse_dec_t *d)
+{
+	morse_t m;
+	morse_start_farnsworth(&m, text, (uint8_t)strlen(text), wpm, eff, lead_ms);
+	morse_dec_init(d);
+	size_t n = 0;
+	double env = 0, ph = 0;
+	int16_t blk[8];
+	for (uint32_t ms = 0; !m.done || ms < lead_ms + 100u; ms++) {
+		bool key = morse_poll(&m, ms);
+		for (int i = 0; i < 8; i++) {
+			env += key ? 1.0 / 40 : -1.0 / 40;
+			env = env < 0 ? 0 : env > 1 ? 1 : env;
+			double e = (1 - cos(M_PI * env)) / 2;
+			double v = amp * e * sin(ph) + sigma * gauss();
+			ph += 2 * M_PI * hz / 8000.0;
+			blk[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+		}
+		n += morse_dec_feed(d, blk, 8, out + n, max - 1 - n);
+		if (ms > 600000u) {
+			break;
+		}
+	}
+	n += morse_dec_flush(d, out + n, max - 1 - n);
+	out[n] = 0;
+}
+
+static void test_decode(void)
+{
+	char out[200];
+	morse_dec_t d;
+	// every character the keyer knows comes back
+	char t[4];
+	const char *all = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/-=?.,+@'():\"!";
+	for (const char *p = all; *p; p++) {
+		CHECK(morse_char(morse_code(*p), t) == 1 && t[0] == *p);
+	}
+	CHECK(morse_char(0x45, t) == 4 && memcmp(t, "<SK>", 4) == 0);
+	CHECK(morse_char(0x7F, t) == 1 && t[0] == '*');
+
+	// 20 wpm at 800 Hz, clean
+	mcw_decode("CQ CQ DE KN0BLE K", 20, 0, 800, 8000, 0, 300, out, sizeof out, &d);
+	CHECK(strcmp(out, "CQ CQ DE KN0BLE K ") == 0);
+	CHECK(morse_dec_hz(&d) == 800 && morse_dec_wpm(&d) >= 19 && morse_dec_wpm(&d) <= 21);
+	if (strcmp(out, "CQ CQ DE KN0BLE K ") != 0) printf("  got \"%s\"\n", out);
+	// slow and low, fast and high, each with noise about 12 dB under the tone
+	mcw_decode("TEST DE KN0BLE", 5, 0, 600, 8000, 1400, 500, out, sizeof out, &d);
+	CHECK(strcmp(out, "TEST DE KN0BLE ") == 0);
+	if (strcmp(out, "TEST DE KN0BLE ") != 0) printf("  got \"%s\"\n", out);
+	CHECK(morse_dec_hz(&d) == 600 && morse_dec_wpm(&d) >= 4 && morse_dec_wpm(&d) <= 6);
+	mcw_decode("QRZ? DE KN0BLE 73 <SK>", 35, 0, 950, 8000, 1400, 300, out, sizeof out, &d);
+	CHECK(strcmp(out, "QRZ? DE KN0BLE 73 <SK> ") == 0);
+	if (strcmp(out, "QRZ? DE KN0BLE 73 <SK> ") != 0) printf("  got \"%s\"\n", out);
+	CHECK(morse_dec_hz(&d) == 950);
+	// a tone between bins (725 Hz) still locks and decodes
+	mcw_decode("PARIS PARIS", 18, 0, 725, 8000, 800, 300, out, sizeof out, &d);
+	CHECK(strcmp(out, "PARIS PARIS ") == 0);
+	if (strcmp(out, "PARIS PARIS ") != 0) printf("  got \"%s\"\n", out);
+	// Farnsworth 20/10: the first character gaps read as word gaps until two one-letter words show what they are;
+	// the words after are whole
+	mcw_decode("CQ CQ CQ DE KN0BLE KN0BLE K", 20, 10, 800, 8000, 600, 300, out, sizeof out, &d);
+	const char *tail = strstr(out, "DE KN0BLE KN0BLE K ");
+	CHECK(tail != NULL);
+	if (tail == NULL) printf("  got \"%s\"\n", out);
+	// weak: the tone 1 dB over the noise in the 4 kHz band
+	noise_seed = 1u;
+	mcw_decode("THE QUICK BROWN FOX 0123456789", 20, 0, 800, 8000, 5000, 300, out, sizeof out, &d);
+	CHECK(strcmp(out, "THE QUICK BROWN FOX 0123456789 ") == 0);
+	if (strcmp(out, "THE QUICK BROWN FOX 0123456789 ") != 0) printf("  got \"%s\"\n", out);
+	// another station after the squelch closed, slower and lower: learned again from the first elements
+	{
+		morse_t m;
+		morse_dec_t e;
+		morse_dec_init(&e);
+		size_t n = 0;
+		const char *texts[2] = { "CQ CQ DE KN0BLE K", "KN0BLE DE W1AW K" };
+		const uint8_t wpm[2] = { 25, 12 };
+		const uint16_t hz[2] = { 800, 650 };
+		for (int k = 0; k < 2; k++) {
+			morse_start(&m, texts[k], (uint8_t)strlen(texts[k]), wpm[k], 300);
+			double env = 0, ph = 0;
+			int16_t blk[8];
+			for (uint32_t ms = 0; !m.done || ms < 400u; ms++) {
+				bool key = morse_poll(&m, ms);
+				for (int i = 0; i < 8; i++) {
+					env += key ? 1.0 / 40 : -1.0 / 40;
+					env = env < 0 ? 0 : env > 1 ? 1 : env;
+					blk[i] = (int16_t)(8000 * (1 - cos(M_PI * env)) / 2 * sin(ph) + 800 * gauss());
+					ph += 2 * M_PI * hz[k] / 8000.0;
+				}
+				n += morse_dec_feed(&e, blk, 8, out + n, sizeof out - 1 - n);
+			}
+			n += morse_dec_flush(&e, out + n, sizeof out - 1 - n);	// the squelch closes between the overs
+		}
+		out[n] = 0;
+		CHECK(strcmp(out, "CQ CQ DE KN0BLE K KN0BLE DE W1AW K ") == 0);
+		if (strcmp(out, "CQ CQ DE KN0BLE K KN0BLE DE W1AW K ") != 0) printf("  got \"%s\"\n", out);
+		CHECK(morse_dec_hz(&e) == 650 && morse_dec_wpm(&e) >= 11 && morse_dec_wpm(&e) <= 13);
+	}
+	// noise alone: nothing decoded
+	mcw_decode("", 20, 0, 800, 0, 2000, 3000, out, sizeof out, &d);
+	CHECK(strlen(out) <= 2);
+	if (strlen(out) > 2) printf("  got \"%s\"\n", out);
+}
+
 int main(void)
 {
 	test_duration();
@@ -196,6 +322,7 @@ int main(void)
 	test_prosigns();
 	test_farnsworth();
 	test_long_text();
+	test_decode();
 	if (failures != 0) {
 		printf("morseTest: %d failure(s)\n", failures);
 		return 1;
