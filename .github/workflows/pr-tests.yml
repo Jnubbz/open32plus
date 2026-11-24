@@ -175,6 +175,7 @@ jobs:
             build/ci/size-report.md
             build/ci/*.log
             build/ci/*/rfoundry_*.bin
+            build/ci/*.bin   # tools/ci.sh keeps each clean build's image as build/ci/<board>-<config>.bin
           if-no-files-found: ignore
 
   checks:
