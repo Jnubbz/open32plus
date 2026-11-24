@@ -194,6 +194,23 @@ The HR_C7000 copies its FM receive audio to the CPU (`modem-hrc7000.md` 8.5). AP
 | An FM signal on 144.390 with the squelch open | heard on the speaker, through the C7000's FM playback | AUDIO_CONTROL bit 6, the codec line out |
 | A packet sent at level 50, recorded by the SDR bench (`aprs.md` 13) | decodes with a valid FCS, about 3 kHz peak deviation, mark about 4 dB under space (`hardware-dm32.md` 9.1) | no tones: AUDIO_CONTROL bit 7 during the transmission, Timer 4 (vector 36) not firing. Voice on the tones or the deviation far off: GPIO 0x2E not 0 while the tones play. Deviation: `amp_per_level` in `radio_dm32.c` |
 
+## 14. CW messages
+
+On the air, 2026-11-24, build `a96de99` (and the builds before it that the fixes came from), UHF simplex at low
+power, received on an analog Baofeng handheld and watched on an FT-991A's scope ([morse.md](../spec/morse.md) 5).
+
+| Check | Result |
+|---|---|
+| A canned and a written message keyed on an FM channel | clean CW in the receiver |
+| Back during a message | stops it at once |
+| PTT during a message | stops it at once (needs `ptt_stops_tx`: the shared PTT line trusts no press while the radio transmits, `gotchas.md` 16.2); the next press talks |
+| SK1 (monitor) during a message | stops it, as designed |
+| The first letter ("E E") | lost with a 150 ms lead-in; heard with 600 ms, except by a receiver with battery save on, which heard it once battery save was off. Hence the Lead-in setting |
+| CTCSS 100.0 Hz, receiver on tone squelch 100.0 | heard once the tone was keyed through the prompt FIFO; with the C7000's tone generator the receiver stayed shut (`modem-hrc7000.md` 8.3). |
+| Occupied width on the scope, 12.5 kHz, a few inches away (the tone generator path, before the FIFO change) | about ±4 kHz, inside the channel |
+
+Still to check: a wrong TX tone keeps the receiver shut, the tone's deviation through the FIFO path (levels 18 / 26) on the SDR bench, and VHF.
+
 ## NXDN Scrambler interoperability
 
 Manual on-air testing with build `21bf5df8` (firmware source matching `c11d6e83`) confirmed scrambled NXDN voice

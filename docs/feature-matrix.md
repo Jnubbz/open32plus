@@ -322,7 +322,7 @@ clock`; ? = not known yet). No driver reads the clock yet ([radio-features.md](s
 | CTCSS / DCS encode and decode | `SUBTONE` | 904 | 3,292* | MD-380: software decode (ADC) and PWM encode; CTCSS 100.0 Hz works on air both ways (2026-10-19), DCS not yet checked |
 | FM TX tones: roger beep, 1750 Hz burst | `FM_TX_TONES` | 568 | — | MD-380: TX tone path not written |
 | DTMF transmit from the keys | `DTMF` | 920 | — | MD-380: TX tone path not written |
-| CW messages: canned or typed text keyed as Morse on an FM channel, Settings > CW | `CW_SEND` | 2,864 | — | MD-380: TX tone path not written. DM-1701 figure (2026-11-24), untested on air |
+| CW messages: canned or typed text keyed as Morse on an FM channel, Settings > CW | `CW_SEND` | 2,864 | — | MD-380: TX tone path not written. DM-1701 figure (2026-11-24). On the air with a DM-32UV (2026-11-24, [its bring-up](testing/dm32-bringup.md#14-cw-messages)) |
 | FM VOX | `VOX` | 496 | 1,064 |  |
 | Receiver battery saver | `BATTERY_SAVE` | 296 | 740 |  |
 | Frequency trim, Settings > Advanced | `REF_TRIM` | 2,156 | 2,232 | Figures from tools/ci.sh (2026-10-30); the hook on each radio, the page and the setting |
