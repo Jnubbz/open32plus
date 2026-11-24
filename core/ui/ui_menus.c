@@ -2256,6 +2256,7 @@ static uint8_t text_idx;
 static uint32_t text_ms;
 enum { TEXT_UPPER, TEXT_DIGITS, TEXT_LOWER, TEXT_MODES };	// the order # cycles through
 static uint8_t text_mode;
+static bool text_upper_only;		// a CW message: Morse has no case, so the keys skip lower case and # skips abc
 #if CONFIG_SATELLITE_TLE
 static uint8_t satellite_text_line;
 #endif
@@ -2335,6 +2336,11 @@ static void text_enter(void)
 	text_len = (uint8_t)strlen(text_buf);
 	text_key = -1;
 	text_mode = TEXT_UPPER;
+#if CONFIG_CW_SEND
+	text_upper_only = cw_writing;
+#else
+	text_upper_only = false;
+#endif
 }
 
 static char text_case(char c)
@@ -2346,7 +2352,7 @@ static char text_case(char c)
 static uint8_t text_cycle_len(const char *set)
 {
 	uint8_t n = (uint8_t)strlen(set);
-	return set[0] >= 'A' && set[0] <= 'Z' ? (uint8_t)(2u * n - 1u) : n;
+	return set[0] >= 'A' && set[0] <= 'Z' && !text_upper_only ? (uint8_t)(2u * n - 1u) : n;
 }
 
 static char text_char(const char *set, uint8_t idx)
@@ -2489,6 +2495,8 @@ static bool text_key_fn(const input_event_t *ev)
 	}
 	if (ev->action == ACT_CONTEXT && ev->gesture == GESTURE_PRESS) {
 		text_mode = (uint8_t)((text_mode + 1u) % TEXT_MODES);
+		if (text_upper_only && text_mode == TEXT_LOWER)
+			text_mode = TEXT_UPPER;	// ABC and 123 only
 		text_key = -1;	// the next key starts a new character
 		ui_dirty();
 		return true;

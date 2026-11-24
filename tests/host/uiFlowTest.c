@@ -1077,6 +1077,11 @@ static const flow_t flows[] = {
 	  "screen=cw-send sent=1 text=CQ_CQ_CQ_DE_N0CALL_N0CALL_K shows=Sending_CW...", 1, false },
 	{ "C Back stops a CW message", "ok 2 up ok ok", "back", "screen=home", 1, false },
 	{ "C Write... opens the message editor", "ok 2 up ok", "up ok", "screen=message-text", 2, false },
+	// Morse has no case: the CW editor's letter keys skip lower case (2: A B C 2, then A again) and # skips abc
+	{ "C CW editor types capitals only", "ok 2 up ok up ok", "2 2 2 2 2 ok", "screen=cw-send text=A", 6, false },
+	{ "C CW editor # skips abc", "ok 2 up ok up ok", "ctx ctx 2 ok", "screen=cw-send text=A", 4, false },
+	{ "C the text editor keeps lower case elsewhere", "5 6 3 ctx 3 down down down down ok", "ctx ctx 2",
+	  "screen=message-text shows=abc", 3, false },
 	{ "C Settings > CW before Signaling tones", "ok 7", "up up up ok", "screen=group shows=Farnsworth shows=800_Hz", 4, false },
 #endif
 	{ "A new APRS message opens its composer", "ok 2", "ok", "screen=compose shows=To_callsign", 1, false },
