@@ -157,8 +157,8 @@ It decodes nothing on HF: the radios receive FM.
 
 | Stage | How | Why |
 |---|---|---|
-| Blocks | 80 samples (10 ms) under a Hann window, 13 Goertzel bins from 400 to 1000 Hz, 50 Hz apart (100 Hz wide) | The window keeps a tone between two bins in the bins around it, so bins more than 4 steps away measure the noise |
-| Tone | The strongest bin locks when it is 4 times the far bins' mean for 3 blocks with the key up; a bin within 2 steps of the lock is the same tone. A lock moves only between elements | MCW at any pitch; a second station takes over between overs |
+| Blocks | 80 samples (10 ms) under a Hann window, 15 Goertzel bins from 350 to 1050 Hz, 50 Hz apart (100 Hz wide). The two end bins only guard: a tone locks from 400 to 1000 Hz | The window keeps a tone between two bins in the bins around it, so bins more than 4 steps away measure the noise |
+| Tone | The strongest bin locks when it is at least as strong as both its neighbors and 4 times the far bins' mean, for 3 blocks with the key up; a bin within 2 steps of the lock is the same tone. Before an over's first element the lock moves freely; after it, only once the key has been up 1 s | Receiver noise slopes down from the low end after de-emphasis, so its strongest bin is an end bin and never locks. Holding the lock through the gaps keeps noise from moving it, which cut every element short by the 3 blocks a new lock takes. A second station takes over between overs |
 | Key | Down above 3/5 of the way from the key-up level to the key-down level, up below 2/5, and only with the key-down level at least 3 times the key-up one. Each block's level teaches the state it was decided in | Follows a fading signal without a fixed threshold |
 | Speed | The last 8 marks: when the longest is twice the shortest they split into dots and dashes; while they are all alike, a mark is classed against the lengths learned and the two kept 1:3. 25 to 250 ms dots (48 to under 5 wpm), 20 wpm to start | Learns a speed far from the start in a few elements |
 | Characters | A gap over 2 dots ends one; its marks are classed when it ends, by the lengths learned then | The first character comes out right once its own dots and dashes told them apart |
@@ -174,7 +174,7 @@ first word misspaced, the rest whole.
 | Item | Cost |
 |---|---|
 | `CONFIG_CW_DECODE` | `config/features.mk` and `core/config.h`, = `APRS_RX` (its board path); [feature-matrix.md](../feature-matrix.md) has the flash figure |
-| RAM | About 860 bytes: the decoder state, the text in the radio core, a block of samples, and copies of the text for the screen and the debug link |
+| RAM | About 880 bytes: the decoder state, the text in the radio core, a block of samples, and copies of the text for the screen and the debug link |
 | CPU | 13 Goertzel bins per sample at 8 kHz, about 100,000 multiplies a second, only while the screen is open |
 
 ### 7.5 Tests and debugging

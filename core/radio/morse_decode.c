@@ -6,9 +6,9 @@
 #include "radio/morse.h"
 #include "radio/morse_decode.h"
 
-// 2 cos(2 pi f / 8000) in Q14 for f = 400, 450 ... 1000 Hz
+// 2 cos(2 pi f / 8000) in Q14 for f = 350, 400 ... 1050 Hz
 static const int32_t coef[MDEC_BINS] = {
-	31164, 30743, 30274, 29758, 29197, 28590, 27939, 27246, 26510, 25733, 24917, 24062, 23170,
+	31538, 31164, 30743, 30274, 29758, 29197, 28590, 27939, 27246, 26510, 25733, 24917, 24062, 23170, 22243,
 };
 
 // A Hann window over the block, Q15: a tone between two bins stays in the few bins around it instead of leaking into
@@ -27,6 +27,7 @@ static const int16_t hann[MDEC_BLOCK] = {
 #define LOCK_RATIO	4u	// a new tone: this many times the other bins' mean, in level
 #define LOCK_BLOCKS	3u	// ... for this many blocks in a row
 #define NEAR_STEPS	4u	// bins this close to the strongest share its tone
+#define RELOCK_MS	1000u	// once an over's first element was heard, the key up this long before the lock moves
 #define SNR_MIN		3u	// key down needs the peak this many times the floor
 #define DOT_MS_MIN	25u	// 48 wpm
 #define DOT_MS_MAX	250u	// under 5 wpm
@@ -311,8 +312,14 @@ static void levels(morse_dec_t *d, out_t *o)
 		}
 	}
 	far = far_n != 0 ? far / far_n : 0;
+	// A tone stands above the bins on both sides of it. Receiver noise slopes (de-emphasis puts most of it low), so its
+	// strongest bin is an end one: it never locks, even when it stands out from the far bins in the gaps
+	bool peak = best > 0 && best + 1u < MDEC_BINS && mag[best] >= mag[best - 1u] && mag[best] >= mag[best + 1u];
+	// Mid-over the lock holds through the gaps; it moves after a pause, or at once before the over's first element
+	bool may_move = !d->locked || d->mark_n == 0 || (uint32_t)d->run * MDEC_BLOCK_MS >= RELOCK_MS;
 	bool locking = false;
-	if (!d->on && (!d->locked || best != d->bin) && mag[best] > LOCK_RATIO * far && mag[best] != 0) {
+	if (!d->on && may_move && peak && (!d->locked || best != d->bin) && mag[best] > LOCK_RATIO * far &&
+	    mag[best] != 0) {
 		// a bin next to the lock is the same tone between two bins, not another one
 		bool near = d->locked && best + 2u >= d->bin && best <= d->bin + 2u;
 		if (!near) {
