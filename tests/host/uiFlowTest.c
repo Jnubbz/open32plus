@@ -1075,7 +1075,10 @@ static const flow_t flows[] = {
 	{ "C Send CW opens the CW composer", "ok 2", "up ok", "screen=cw-compose shows=QRZ?_DE_N0CALL_K", 2, false },
 	{ "C a canned CW message sends", "ok 2 up ok", "ok",
 	  "screen=cw-send sent=1 text=CQ_CQ_CQ_DE_N0CALL_N0CALL_K shows=Sending_CW...", 1, false },
-	{ "C Back stops a CW message", "ok 2 up ok ok", "back", "screen=home", 1, false },
+	{ "C Back stops a CW message and returns to the CW list", "ok 2 up ok ok", "back", "screen=cw-compose", 1, false },
+	{ "C Back from a written CW message returns to the CW list", "ok 2 up ok up ok 2 ok", "back",
+	  "screen=cw-compose", 1, false },
+	{ "C Back from the CW list returns to Messages", "ok 2 up ok", "back", "screen=messages", 1, false },
 	{ "C Write... opens the message editor", "ok 2 up ok", "up ok", "screen=message-text", 2, false },
 	// Morse has no case: the CW editor's letter keys skip lower case (2: A B C 2, then A again) and # skips abc
 	{ "C CW editor types capitals only", "ok 2 up ok up ok", "2 2 2 2 2 ok", "screen=cw-send text=A", 6, false },

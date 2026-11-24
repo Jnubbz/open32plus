@@ -544,7 +544,9 @@ static void cw_send(const char *text)
 			 TR(MSG_TOAST_SEND_FAILED, "Couldn't send: try again"));
 		return;
 	}
-	ui_go_home();
+	// Over the CW list, so Back from cw-send goes back to it to send another (the editor has already closed)
+	while (ui_depth() > 0 && ui_frame()->scr != SCR_CW_COMPOSE)
+		ui_pop();
 	ui_push(SCR_CW_SEND, 0);
 }
 

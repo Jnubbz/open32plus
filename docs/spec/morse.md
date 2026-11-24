@@ -74,7 +74,7 @@ idle, then back to the channel. Not yet checked on a radio: test into a dummy lo
 | Open | Messages > Send CW (the list's last row) opens `cw-compose`: the canned CW messages, then Write... |
 | Canned | `CQ CQ CQ DE {CALL} {CALL} K`, `QRZ? DE {CALL} K`, `TU 73 DE {CALL} <SK>`, `DE {CALL}`. On air text: never translated |
 | Write | The message editor (`message-text`, up to 143 characters) in capitals only: the letter keys skip lower case and **#** goes between ABC and 123 (Morse has no case). OK there sends it as CW |
-| Send | OK hands the text to the radio core (`radio_req_cw_send`) and opens `cw-send`: the text, "Sending CW...", then the outcome. Back there stops a message still keying |
+| Send | OK hands the text to the radio core (`radio_req_cw_send`) and opens `cw-send`: the text, "Sending CW...", then the outcome. It opens over the CW list, the editor closed: Back stops a message still keying and returns to the list, to send another |
 | Settings | Settings > CW, between My radio and Signaling tones (no digit key, so the digit keys' groups keep theirs): Speed 5..40 wpm (`cw_wpm`, 0 = 20), Farnsworth Off or 5..18 wpm (`cw_eff_wpm`, CW messages only; the CW IDs keep standard spacing), Tone 400..1000 Hz (`cw_tone_hz`, 0 = 800) |
 
 `{CALL}` is the callsign in the radio name (`radio_cwid_callsign`, the SFR CW ID's rule). A canned message that needs it
@@ -116,7 +116,7 @@ a full queue frees it again.
 | `sharedPttTest` | A press during a transmission counts only while `ptt_stops_tx` is on |
 | `radioCoreTest` | Keying "AB" (the 600 ms lead, element timing, tail, back to the channel), PTT cutting it without keying, `ptt_stops_tx` on only while it keys, stop, a channel change, every refusal, the channel's bandwidth and CTCSS, Farnsworth and tone from the settings, the UI services and settings |
 | `morseTest` | `morse_ms()` against the keyed timelines, `radio_cwmsg_clean()` and `radio_cwmsg_expand()` |
-| `uiFlowTest` | The Messages row, `cw-compose`, `cw-send`, Back, Write..., Settings > CW |
+| `uiFlowTest` | The Messages row, `cw-compose`, `cw-send`, Back (to the CW list, then Messages), Write..., Settings > CW |
 | Debug link | View section 39 `cw` ([debuglink.md](debuglink.md)) |
 | HIL | `tests/hil/features.toml` `cw_send`: opt-in, `--allow-rf` only, into a dummy load |
 
