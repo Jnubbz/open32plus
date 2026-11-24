@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 The RadioFoundry Authors -->
+<!-- Copyright (c) 2026 Josh Noble (KN0BLE) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>open32plus installer</title>
+<meta name="description" content="Install open32plus firmware from Chrome, over the programming cable.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%232f6f4f%22/%3E%3Cpath d=%22M3 8h2m2 0h6%22 stroke=%22white%22 stroke-width=%222%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="install.css">
+</head>
+<body>
+<header>
+	<h1>open32plus <span class="sub">installer</span></h1>
+	<p class="lead">Open firmware for Baofeng DMR radios, installed from this page over the programming cable.
+	Based on <a href="https://radiofoundry.org">RadioFoundry</a>. MIT licensed.</p>
+</header>
+
+<main>
+	<div id="nosupport" class="notice bad" hidden>
+		<b>This browser can't reach the programming cable.</b> Use Chrome or Edge on a desktop computer.
+	</div>
+
+	<section class="card" id="step-radio">
+		<h2><span class="n">1</span> Radio</h2>
+		<select id="radio" aria-label="Radio"></select>
+	</section>
+
+	<section class="card" id="step-fw">
+		<h2><span class="n">2</span> Firmware</h2>
+		<label class="choice" id="pick-release-row" hidden>
+			<input type="radio" name="fw" value="release" id="pick-release">
+			<span>Latest release <b id="rel-version"></b> <span class="muted" id="rel-date"></span>
+			<a id="rel-notes" href="#" target="_blank" rel="noopener">release notes</a></span>
+		</label>
+		<label class="choice">
+			<input type="radio" name="fw" value="own" id="pick-own">
+			<span>A file I built <span class="muted">(<span class="bin-name"></span>.bin or <span class="bin-name"></span>_codec.bin)</span></span>
+		</label>
+		<input type="file" id="own-file" accept=".bin" hidden>
+		<p id="fw-status" class="status" role="status"></p>
+	</section>
+
+	<section class="card" id="step-codec">
+		<h2><span class="n">3</span> DMR voice</h2>
+		<p>DMR voice needs the AMBE+2 codec, which open32plus can't include. Installing erases the codec in the radio, so
+		choose Baofeng's own firmware file for the <span class="radio-name"></span>, one of the versions below. This page
+		reads the codec out of it on this computer, and this browser keeps it for next time. FM, CW and everything else work
+		without it.</p>
+		<p class="small muted">Versions it knows: <span id="codec-versions"></span></p>
+		<p id="codec-status" class="status" role="status"></p>
+		<div class="row">
+			<button type="button" id="codec-pick">Choose the Baofeng firmware file…</button>
+			<button type="button" id="codec-forget" class="link" hidden>Forget the kept codec</button>
+		</div>
+		<input type="file" id="codec-file" accept=".bin" hidden>
+		<label class="check"><input type="checkbox" id="codec-skip"> Install without DMR voice</label>
+	</section>
+
+	<section class="card" id="step-install">
+		<h2><span class="n">4</span> Install</h2>
+		<ol class="steps">
+			<li>Plug the programming cable into the computer and the radio.</li>
+			<li>Click <b>Connect</b> and choose the cable's port.</li>
+			<li>Switch the radio <b>off</b>. Hold <b id="keys"></b> and switch it on<span id="sign"></span>: that is update
+			mode. Let go of the keys.</li>
+		</ol>
+		<div class="row">
+			<button type="button" id="connect" class="primary" disabled>Connect</button>
+			<button type="button" id="stop" hidden>Stop</button>
+		</div>
+		<p id="install-status" class="status" role="status" aria-live="polite"></p>
+		<progress id="progress" max="100" value="0" hidden></progress>
+		<details>
+			<summary>Log</summary>
+			<pre id="log"></pre>
+		</details>
+	</section>
+
+	<section class="card small">
+		<h2>Good to know</h2>
+		<ul>
+			<li>Nothing in the radio changes until the radio has answered in update mode and the erase starts. Your
+			channels, contacts and calibration aren't in the area it erases.</li>
+			<li>If an install stops halfway, the radio won't start, but update mode still works: hold the same keys at
+			power-on and install again.</li>
+			<li>Afterward, <b>Menu → Settings → My radio → About</b> shows the build you installed.</li>
+			<li>This page sends nothing anywhere. It needs the internet only to load.</li>
+		</ul>
+	</section>
+</main>
+
+<footer>
+	<p>open32plus: <a href="https://github.com/Jnubbz/open32plus">github.com/Jnubbz/open32plus</a> ·
+	based on <a href="https://github.com/radiofoundry/radiofoundry">RadioFoundry</a>, © 2026 The RadioFoundry Authors and
+	Josh Noble (KN0BLE), MIT license · <span id="site-build"></span></p>
+</footer>
+<script type="module" src="install.js"></script>
+</body>
+</html>

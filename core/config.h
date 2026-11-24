@@ -264,6 +264,14 @@
 #ifndef CONFIG_DTMF
 #define CONFIG_DTMF			CONFIG_FM
 #endif
+// The firmware's name on the About page (FORKING.md): this fork's, with the project it is based on below it, so its
+// users' bug reports reach this fork
+#ifndef FIRMWARE_NAME
+#define FIRMWARE_NAME			"open32plus"
+#endif
+#ifndef FIRMWARE_BASED_ON
+#define FIRMWARE_BASED_ON		"RadioFoundry"
+#endif
 #ifndef CONFIG_CW_SEND
 #define CONFIG_CW_SEND			CONFIG_FM_TX_TONES
 #endif

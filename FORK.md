@@ -7,16 +7,22 @@ open32plus is a fork of [RadioFoundry](https://github.com/RadioFoundry/RadioFoun
 official RadioFoundry release. RadioFoundry's `LICENSE`, `AUTHORS`, `CONTRIBUTORS` and every copyright line stay as
 they are ([FORKING.md](FORKING.md)). Files we change get our copyright line below theirs.
 
+## Install
+
+Open the installer in Chrome or Edge on a computer: **https://jnubbz.github.io/open32plus/**. It installs the newest
+release over the programming cable and keeps DMR voice working with the codec from Baofeng's own firmware file
+([installer/README.md](installer/README.md)).
+
 ## What open32plus adds
 
 | Area | Goal |
 |---|---|
-| CW, sending | Keyboard-to-CW from the message editor, CW macros (`{CALL}`, `{THEIR}`, `{RST}`), MCW over FM, Farnsworth spacing, prosigns, beacon/repeat mode |
+| CW, sending | Done: CW messages from the message editor (canned or typed, `{CALL}`), MCW over FM with the channel's CTCSS, Farnsworth spacing, prosigns, a lead-in setting. Still to do: beacon/repeat mode, more macros |
 | CW, carrier | True carrier CW with shaped (click-free) keying, if the RF chip allows it |
-| CW, receive | CW receive and an on-screen decoder into the message inbox |
+| CW, receive | Done: Messages > Decode CW, an MCW decoder on the FM channel |
 | CW, interface | Morse menu prompts, a built-in Koch trainer, side keys or a paddle as the key |
 | UX | Menu and workflow changes for operating, not just configuring |
-| Web tools | Channel generation by ZIP/county, built into the browser tooling |
+| Web tools | Done: the web installer. Still to do: channel generation by ZIP/county |
 
 ## How the fork is run
 

@@ -3308,6 +3308,11 @@ msgid "Firmware: "
 msgstr "Firmware: "
 
 #: core/ui/ui_menus.c
+msgctxt "ABOUT_BODY_BASED_ON"
+msgid "Based on: "
+msgstr "Basado en: "
+
+#: core/ui/ui_menus.c
 msgctxt "ABOUT_BODY_RELEASE"
 msgid "Release: "
 msgstr "Versión: "
