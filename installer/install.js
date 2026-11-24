@@ -9,7 +9,9 @@ import { BfError } from "./js/flasher/bfloader.js";
 const $ = (id) => document.getElementById(id);
 const S = {
 	c: null,		// data/c7000.json
-	release: null,		// data/release.json, or null when there is none yet
+	radios: [],		// data/radios.json: [{id, name, keys, sign}], the radios with the Baofeng updater
+	radio: null,		// the one chosen
+	release: null,		// data/release.json ({version, date, notes, images: {board: {image, manifest}}}), or null
 	fw: null,		// {image, slot, source}
 	codec: null,		// {slot, name}: from the stock file or kept in this browser
 	busy: false,
@@ -49,7 +51,7 @@ function refresh() {
 	$("connect").disabled = S.busy || !S.fw || !codecOk || !serialApi();
 	$("stop").hidden = !S.busy;
 	$("codec-forget").hidden = !S.codec || S.codec.from !== "browser";
-	for (const id of ["pick-release", "pick-own", "codec-pick", "codec-skip"]) $(id).disabled = S.busy;
+	for (const id of ["radio", "pick-release", "pick-own", "codec-pick", "codec-skip"]) $(id).disabled = S.busy;
 	if (!S.fw) setStatus("install-status", "Choose the firmware first.");
 	else if (!codecOk) setStatus("install-status", "Choose the Baofeng firmware file for DMR voice, or install without it.");
 	else if (!S.busy && !$("install-status").dataset.kept) setStatus("install-status", "Ready. Click Connect.");
@@ -57,14 +59,16 @@ function refresh() {
 
 // ---- 1. Firmware ----
 
+const releaseFor = (id) => S.release?.images?.[id] || null;
+
 async function useRelease() {
 	S.fw = null;
 	refresh();
-	const r = S.release;
+	const r = S.release, files = releaseFor(S.radio.id);
 	setStatus("fw-status", `Downloading ${r.version}…`);
 	try {
-		const [manifest, image] = await Promise.all([getJson(r.manifest), getBytes(r.image)]);
-		await core.checkRelease(manifest, image);
+		const [manifest, image] = await Promise.all([getJson(files.manifest), getBytes(files.image)]);
+		await core.checkRelease(manifest, image, S.radio.id);
 		S.fw = { image, slot: null, source: `open32plus ${r.version}` };
 		setStatus("fw-status", `open32plus ${r.version}: ${kb(image.length)}, checked against its manifest.`, "ok");
 	} catch (e) {
@@ -77,12 +81,13 @@ async function useOwn(file) {
 	S.fw = null;
 	try {
 		const data = await readFile(file);
-		const { image, slot } = await core.splitOwn(S.c, data);
+		const { image, slot } = await core.splitOwn(S.c, S.radio.id, data);
 		S.fw = { image, slot, source: file.name };
 		let text = `${file.name}: ${kb(image.length)}.`;
 		if (slot) {
-			text += ` It carries its own codec (${await core.checkSlot(S.c, slot)}), which is installed with it.`;
-			S.codec = { slot, name: await core.checkSlot(S.c, slot), from: "image" };
+			const name = await core.checkSlot(S.c, S.radio.id, slot);
+			text += ` It carries its own codec (${name}), which is installed with it.`;
+			S.codec = { slot, name, from: "image" };
 			codecShow();
 		}
 		setStatus("fw-status", text, "ok");
@@ -105,10 +110,10 @@ function codecShow() {
 
 async function useStock(file) {
 	try {
-		const { slot, name } = await core.slotFromStock(S.c, await readFile(file));
+		const { slot, name } = await core.slotFromStock(S.c, S.radio.id, await readFile(file));
 		S.codec = { slot, name, from: "file" };
 		codecShow();
-		if (await core.saveSlot(slot, name)) log(`codec ${name} kept in this browser for the next install`);
+		if (await core.saveSlot(S.radio.id, slot, name)) log(`codec ${name} kept in this browser for the next install`);
 	} catch (e) {
 		setStatus("codec-status", `${file.name}: ${e.message}`, "bad");
 	}
@@ -140,19 +145,19 @@ async function install() {
 	};
 	try {
 		const slot = S.fw.slot || ($("codec-skip").checked ? null : S.codec?.slot) || null;
-		const bytes = core.installBytes(S.c, S.fw.image, slot);
+		const bytes = core.installBytes(S.c, S.radio.id, S.fw.image, slot);
 		log(`image ${S.fw.source}, ${S.fw.image.length} bytes${slot ? `, codec slot ${slot.length} bytes` : ", no codec"}: ${bytes.length} bytes to write`);
 		const port = await api.requestPort();
 		setStatus("install-status", "Opening the cable…");
 		stream = await SerialStream.open(port, 115200);
-		const ld = core.loader(S.c, stream, log);
-		setStatus("install-status", "Waiting for update mode: switch the radio on with PTT and SK1 held.");
+		const ld = core.loader(S.c, S.radio.id, stream, log);
+		setStatus("install-status", `Waiting for update mode: switch the radio on with ${S.radio.keys} held.`);
 		const id = await ld.listen(120000, { signal: S.stop.signal });
 		log(`update mode found (${id.id})`);
 		$("progress").hidden = false;
 		$("progress").value = 0;
 		const blocks = await ld.write(bytes, {
-			name: "rfoundry_dm32.bin",
+			name: `rfoundry_${S.radio.id}.bin`,
 			signal: S.stop.signal,
 			onPhase: (p) => (erased = true) && setStatus("install-status", p === "erase"
 				? "Erasing the application area (about 15 seconds)… Don't switch the radio off."
@@ -183,7 +188,6 @@ async function start() {
 	if (!serialApi()) $("nosupport").hidden = false;
 	try {
 		S.c = await getJson("data/c7000.json");
-		core.board(S.c);
 	} catch (e) {
 		setStatus("fw-status", `This page didn't load its radio data: ${e.message}. Reload the page.`, "bad");
 		return;
@@ -197,28 +201,27 @@ async function start() {
 	} catch {
 		S.release = null;
 	}
-	if (S.release) {
-		$("pick-release-row").hidden = false;
-		$("rel-version").textContent = S.release.version;
-		$("rel-date").textContent = S.release.date ? `(${S.release.date})` : "";
-		$("rel-notes").href = S.release.notes;
-		$("pick-release").checked = true;
-		useRelease();
-	} else {
-		setStatus("fw-status", "No release yet: choose a file you built.");
+	try {
+		S.radios = (await getJson("data/radios.json")).filter((r) => S.c.boards[r.id]?.bootloader_id);
+	} catch (e) {
+		setStatus("fw-status", `This page didn't load its radio list: ${e.message}. Reload the page.`, "bad");
+		return;
 	}
-	const kept = await core.loadSlot();
-	const name = kept && (await core.checkSlot(S.c, kept.slot));
-	if (name) S.codec = { slot: kept.slot, name: kept.name || name, from: "browser" };
-	codecShow();
-
+	const sel = $("radio");
+	for (const r of S.radios) sel.append(new Option(r.name, r.id));
+	// the radio chosen last time, else the first with a release
+	let first = null;
+	try { first = localStorage.getItem("open32plus-radio"); } catch { /* no storage */ }
+	if (!S.radios.some((r) => r.id === first)) first = (S.radios.find((r) => releaseFor(r.id)) || S.radios[0])?.id;
+	sel.value = first;
+	sel.addEventListener("change", () => chooseRadio(sel.value));
 	$("pick-release").addEventListener("change", () => useRelease());
 	$("pick-own").addEventListener("click", () => $("own-file").click());
 	$("own-file").addEventListener("change", (e) => e.target.files[0] && useOwn(e.target.files[0]));
 	$("codec-pick").addEventListener("click", () => $("codec-file").click());
 	$("codec-file").addEventListener("change", (e) => e.target.files[0] && useStock(e.target.files[0]));
 	$("codec-forget").addEventListener("click", async () => {
-		await core.forgetSlot();
+		await core.forgetSlot(S.radio.id);
 		S.codec = null;
 		codecShow();
 		refresh();
@@ -226,6 +229,38 @@ async function start() {
 	$("codec-skip").addEventListener("change", refresh);
 	$("connect").addEventListener("click", install);
 	$("stop").addEventListener("click", () => S.stop?.abort());
+	await chooseRadio(first);
+}
+
+// A radio chosen: its keys and sign, its release image, its kept codec and the stock versions it knows
+async function chooseRadio(id) {
+	S.radio = S.radios.find((r) => r.id === id);
+	try { localStorage.setItem("open32plus-radio", id); } catch { /* no storage */ }
+	for (const el of document.querySelectorAll(".radio-name")) el.textContent = S.radio.name;
+	for (const el of document.querySelectorAll(".bin-name")) el.textContent = `rfoundry_${id}`;
+	$("keys").textContent = S.radio.keys;
+	$("sign").textContent = S.radio.sign ? ` (${S.radio.sign.charAt(0).toLowerCase()}${S.radio.sign.slice(1).replace(/\.$/, "")})` : "";
+	$("codec-versions").textContent = (S.c.profiles || []).filter((p) => p.board === id).map((p) => p.name.replace(/\.bin$/, "")).join(", ") || "none yet";
+	S.fw = null;
+	S.codec = null;
+	$("own-file").value = "";
+	$("codec-file").value = "";
+	if (releaseFor(id)) {
+		$("pick-release-row").hidden = false;
+		$("rel-version").textContent = S.release.version;
+		$("rel-date").textContent = S.release.date ? `(${S.release.date})` : "";
+		$("rel-notes").href = S.release.notes;
+		$("pick-release").checked = true;
+		useRelease();
+	} else {
+		$("pick-release-row").hidden = true;
+		$("pick-own").checked = false;
+		setStatus("fw-status", S.release ? `The newest release has no image for the ${S.radio.name}: choose a file you built.` : "No release yet: choose a file you built.");
+	}
+	const kept = await core.loadSlot(id);
+	const name = kept && (await core.checkSlot(S.c, id, kept.slot));
+	if (name) S.codec = { slot: kept.slot, name: kept.name || name, from: "browser" };
+	codecShow();
 	refresh();
 }
 
