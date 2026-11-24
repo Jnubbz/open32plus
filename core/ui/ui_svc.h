@@ -218,6 +218,19 @@ bool ui_svc_msg_send(uint32_t dst, bool group, const char *text);
 bool ui_svc_msg_reply(uint16_t i, const char *text);
 bool ui_svc_radio_check(uint32_t id);
 bool ui_svc_call_alert(uint32_t id);
+// --- CW messages (CONFIG_CW_SEND, docs/spec/morse.md 5) ---
+// What became of the last message, as the radio core's cwmsg_result_t
+enum { UI_CW_NONE, UI_CW_SENT, UI_CW_CUT, UI_CW_NOT_FM, UI_CW_BUSY, UI_CW_NO_TX, UI_CW_TOO_LONG, UI_CW_EMPTY };
+typedef struct {
+	bool active;		// handed over and not ended (queued or keying)
+	uint8_t last;		// UI_CW_* of the last message that ended
+	uint8_t serial;		// moves on when a message ends
+} ui_cw_t;
+bool ui_svc_cw_send(const char *text);		// key text as Morse on the FM channel; false: refused at once (ui_svc_cw_get)
+void ui_svc_cw_stop(void);			// stop the message being keyed
+void ui_svc_cw_get(ui_cw_t *out);
+// A canned message with {CALL} as the callsign in the radio name; 0 when it needs one and there is none
+uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap);
 // ARS registration with the presence server (Settings > Connections > Data services), as dmrArsState_t
 enum { UI_ARS_OFF, UI_ARS_REGISTERING, UI_ARS_REGISTERED, UI_ARS_REFUSED, UI_ARS_NO_ANSWER };
 uint8_t ui_svc_ars_state(void);
@@ -459,6 +472,9 @@ typedef enum {
 	// One step of a chain, set whole (its frequency and length in one write of the settings area): the value is
 	// UI_SIG_STEP(event, step, Hz, ms). Write only
 	UI_SET_SIG_STEP,
+	// The CW keyer (Settings > CW, CONFIG_CW_SEND, docs/spec/morse.md): speed in wpm 5..40, the CW messages' Farnsworth
+	// speed in wpm (0 off), the tone in Hz (settings_t.cw_wpm / cw_eff_wpm / cw_tone_hz; stored 0 reads as the default)
+	UI_SET_CW_WPM, UI_SET_CW_EFF_WPM, UI_SET_CW_TONE_HZ,
 	UI_SET_COUNT
 } ui_setting_t;
 

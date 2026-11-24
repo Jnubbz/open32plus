@@ -196,6 +196,23 @@ void morse_gap_ms(uint8_t wpm, uint8_t eff_wpm, uint16_t *char_ms, uint16_t *wor
 	*word_ms = (uint16_t)((7u * num + den / 2u) / den);
 }
 
+uint32_t morse_ms(const char *text, uint8_t len, uint8_t wpm, uint8_t eff_wpm)
+{
+	morse_t m;
+	bool key;
+	uint8_t units;
+	uint8_t kind;
+	uint16_t char_ms, word_ms;
+	uint32_t dot = morse_dot_ms(wpm);
+	uint32_t total = 0;
+	morse_gap_ms(wpm, eff_wpm, &char_ms, &word_ms);
+	load(&m, text, len);
+	while (next_segment(&m, &key, &units, &kind)) {
+		total += kind == SEG_CHAR_GAP ? char_ms : kind == SEG_WORD_GAP ? word_ms : units * dot;
+	}
+	return total;
+}
+
 void morse_start_farnsworth(morse_t *m, const char *text, uint8_t len, uint8_t wpm, uint8_t eff_wpm, uint32_t now_ms)
 {
 	load(m, text, len);

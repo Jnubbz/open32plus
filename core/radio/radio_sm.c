@@ -64,6 +64,9 @@
 #if CONFIG_HOTSPOT
 #include "radio/radio_hotspot.h"	// the CW ID handover
 #endif
+#if CONFIG_CW_SEND
+#include "radio/radio_cwmsg.h"	// the CW message handover (docs/spec/morse.md 5)
+#endif
 #if CONFIG_SFR_CWID
 static void cw_cancel(radio_sm_t *sm);
 #endif
@@ -5906,11 +5909,11 @@ static bool aprs_can_start(const radio_sm_t *sm)
 	if ((sm->dmr_running && sm->view.dmr.state != RDMR_IDLE) || sm->dmr_keyed) {
 		return false;
 	}
+#endif
 #if RADIO_SM_CW
 	if (sm->cw_phase != 0) {
 		return false;
 	}
-#endif
 #endif
 #if CONFIG_DMR_DATA_CORE
 	if (dmrDataServiceIsBusy()) {
@@ -7186,18 +7189,21 @@ static void hotspot_follow_power(radio_sm_t *sm)
 	}
 }
 
+#endif	// CONFIG_DMR: the CW keyer below also serves FM-only builds (CW messages); the DMR block goes on after it
+
 #if RADIO_SM_CW
-// --- CW IDs: the hotspot's (SEND_CWID, docs/spec/mmdvm-protocol.md 2.11; the hotspot is idle, mmdvm.c accepts it only
-// then) and the standalone SFR repeater's (CONFIG_SFR_CWID, docs/spec/sfr.md 4, CW ID). The DMR keying is released, the
-// board goes to FM and keys a carrier on the TX frequency, the board's TX tone is keyed in Morse (core/radio/morse.c)
-// at the settings' speed, then FM is left: set_mode(DMR) sets up the modem again (gotcha 8.13), the receiver goes
-// back to the RX frequency and the hotspot's keying is armed again, or the repeater role starts again ---
+// --- The CW keyer (docs/spec/morse.md). The CW IDs: the hotspot's (SEND_CWID, docs/spec/mmdvm-protocol.md 2.11; the
+// hotspot is idle, mmdvm.c accepts it only then) and the standalone SFR repeater's (CONFIG_SFR_CWID, docs/spec/sfr.md
+// 4, CW ID). The DMR keying is released, the board goes to FM and keys a carrier on the TX frequency, the board's TX
+// tone is keyed in Morse (core/radio/morse.c) at the settings' speed, then FM is left: set_mode(DMR) sets up the modem
+// again (gotcha 8.13), the receiver goes back to the RX frequency and the hotspot's keying is armed again, or the
+// repeater role starts again. CW messages (CONFIG_CW_SEND, morse.md 5): keyed from idle on the FM channel's TX
+// frequency, bandwidth, power and TX subtone, with the settings' Farnsworth spacing, then tune() back to the channel ---
 
 #define CW_LEAD_MS		150	// carrier up before the first element
 #define CW_TAIL_MS		150	// and after the last
-#define CW_TONE_MIN_HZ		300
-#define CW_TONE_MAX_HZ		3000
 enum { CW_OFF = 0, CW_KEYING, CW_TAIL };
+enum { CW_END_SENT, CW_END_CUT, CW_END_REFUSED };	// how a keying ended (cw_ended)
 
 static void cw_key(radio_sm_t *sm, bool down)
 {
@@ -7208,9 +7214,20 @@ static void cw_key(radio_sm_t *sm, bool down)
 	board.radio->tx_tone(down ? sm->cw_tone_hz : 0);
 }
 
-static void cw_ended(radio_sm_t *sm, bool sent, uint32_t ms)
+static void cw_ended(radio_sm_t *sm, uint8_t why, uint32_t ms)
 {
 	(void)ms;
+	bool sent = why == CW_END_SENT;
+	(void)sent;
+#if CONFIG_CW_SEND
+	if (sm->cw_msg) {
+		sm->cw_msg = false;
+		sm->view.cw_tx = false;
+		radio_cwmsg_ended(sent ? CWMSG_SENT : why == CW_END_CUT ? CWMSG_CUT : CWMSG_NO_TX, ms);
+		changed(sm);
+		return;
+	}
+#endif
 #if CONFIG_SFR_CWID
 	if (sm->cw_sfr) {
 		if (sent) {
@@ -7229,7 +7246,8 @@ static void cw_ended(radio_sm_t *sm, bool sent, uint32_t ms)
 #endif
 }
 
-// FM off again, the hotspot's or the repeater's DMR set-up back
+#if CONFIG_DMR
+// A CW ID's end: FM off again, the hotspot's or the repeater's DMR set-up back
 static void cw_restore(radio_sm_t *sm)
 {
 	static const subtone_t none = { TONE_NONE, 0 };
@@ -7254,11 +7272,38 @@ static void cw_restore(radio_sm_t *sm)
 	hotspot_arm(sm);
 	outputs(sm);
 }
+#endif
 
-// The carrier up in FM on hz and the text queued after the lead-in: the keying speed, 0 if the board refused
-static uint8_t cw_begin(radio_sm_t *sm, uint32_t hz, uint8_t power, const char *text, uint8_t n, uint32_t now_ms)
+// A keying's end, whatever it keyed: the board set up for what follows, then how it ended for its owner
+static void cw_finish(radio_sm_t *sm, uint8_t why, uint32_t ms, uint32_t now_ms)
 {
-	static const subtone_t none = { TONE_NONE, 0 };
+	(void)now_ms;
+#if CONFIG_CW_SEND
+	if (sm->cw_msg) {
+		board.radio->tx_tone(0);
+		board.radio->tx_off();
+		sm->tx_end_ms = now_ms;
+		sm->cw_phase = CW_OFF;
+		sm->cw_key = false;
+		sm->view.state = RS_IDLE;
+		sm->view.tot_warning = false;
+		cw_ended(sm, why, ms);
+		tune(sm, now_ms);	// the channel again, as an APRS transmission ends
+		outputs(sm);
+		changed(sm);
+		return;
+	}
+#endif
+#if CONFIG_DMR
+	cw_restore(sm);
+	cw_ended(sm, why, ms);
+	changed(sm);
+#endif
+}
+
+// The keyer's speed and tone from the settings (0 or out of range: the defaults); eff: the Farnsworth speed, 0 = off
+static uint8_t cw_speed(radio_sm_t *sm, uint8_t *eff)
+{
 	settings_t *st = &st_copy;
 	settings_read(st);
 	uint8_t wpm = st->cw_wpm != 0 ? st->cw_wpm : MORSE_WPM_DEFAULT;
@@ -7266,26 +7311,39 @@ static uint8_t cw_begin(radio_sm_t *sm, uint32_t hz, uint8_t power, const char *
 		wpm = MORSE_WPM_DEFAULT;
 	}
 	uint16_t tone_hz = st->cw_tone_hz;
-	sm->cw_tone_hz = (tone_hz >= CW_TONE_MIN_HZ && tone_hz <= CW_TONE_MAX_HZ) ? tone_hz : MORSE_TONE_HZ_DEFAULT;
+	sm->cw_tone_hz = (tone_hz >= MORSE_TONE_MIN_HZ && tone_hz <= MORSE_TONE_MAX_HZ) ? tone_hz : MORSE_TONE_HZ_DEFAULT;
+	if (eff != NULL) {
+		*eff = (st->cw_eff_wpm >= MORSE_WPM_MIN && st->cw_eff_wpm < wpm) ? st->cw_eff_wpm : 0;
+	}
+	return wpm;
+}
 
+// The carrier up in FM on hz and the text queued after the lead-in at wpm (eff: Farnsworth, 0 = off): false if the
+// board refused, the keying already ended (cw_finish)
+static bool cw_begin(radio_sm_t *sm, uint32_t hz, radio_bw_t bw, uint8_t power, const subtone_t *tone, const char *text,
+		     uint8_t n, uint8_t wpm, uint8_t eff, uint32_t now_ms)
+{
+#if CONFIG_DMR
 	if (sm->dmr_keyed) {
 		sm->dmr_keyed = false;
 		board.radio->tx_off();
 	}
-	sm->board_mode = RADIO_MODE_FM;
-	board.radio->set_mode(RADIO_MODE_FM);
-	sm->cw_phase = CW_KEYING;	// before tx(): cw_restore and outputs see it
-	if (!key_tx(sm, hz, RADIO_BW_12K5, power, &none) || !board.radio->tx_tone(sm->cw_tone_hz)) {
-		cw_restore(sm);
-		cw_ended(sm, false, 0);
-		return 0;
+#endif
+	if (sm->board_mode != RADIO_MODE_FM) {
+		sm->board_mode = RADIO_MODE_FM;
+		board.radio->set_mode(RADIO_MODE_FM);
+	}
+	sm->cw_phase = CW_KEYING;	// before tx(): cw_finish and outputs see it
+	if (!key_tx(sm, hz, bw, power, tone) || !board.radio->tx_tone(sm->cw_tone_hz)) {
+		cw_finish(sm, CW_END_REFUSED, 0, now_ms);
+		return false;
 	}
 	cw_key(sm, false);		// a silent carrier for the lead-in
-	morse_start(&sm->cw, text, n, wpm, now_ms + CW_LEAD_MS);
+	morse_start_farnsworth(&sm->cw, text, n, wpm, eff, now_ms + CW_LEAD_MS);
 	sm->cw_start_ms = now_ms;
 	outputs(sm);
 	changed(sm);
-	return wpm;
+	return true;
 }
 
 #if CONFIG_HOTSPOT
@@ -7294,13 +7352,14 @@ static void cw_abort(radio_sm_t *sm)
 {
 	if (sm->cw_phase != CW_OFF) {
 		cw_restore(sm);
-		cw_ended(sm, false, 0);
+		cw_ended(sm, CW_END_CUT, 0);
 	}
 }
 
 static void cw_start(radio_sm_t *sm, uint32_t now_ms)
 {
-	char text[MORSE_TEXT_MAX];
+	static const subtone_t none = { TONE_NONE, 0 };
+	char text[MORSE_ID_MAX];
 	uint8_t n = radio_hs_cw_take(text, sizeof(text));
 	if (n == 0) {
 		return;
@@ -7310,8 +7369,8 @@ static void cw_start(radio_sm_t *sm, uint32_t now_ms)
 		radio_hs_cw_ended(false, 0);
 		return;
 	}
-	uint8_t wpm = cw_begin(sm, sm->hs_tx_hz, sm->hs_power, text, n, now_ms);
-	if (wpm != 0) {
+	uint8_t wpm = cw_speed(sm, NULL);
+	if (cw_begin(sm, sm->hs_tx_hz, RADIO_BW_12K5, sm->hs_power, &none, text, n, wpm, 0, now_ms)) {
 		radio_hs_cw_started(wpm);
 	}
 }
@@ -7322,7 +7381,8 @@ static void cw_start(radio_sm_t *sm, uint32_t now_ms)
 // refused, the poll leaves the state alone) and the callsign is keyed on the channel's frequency
 static void cw_start_sfr(radio_sm_t *sm, uint32_t now_ms)
 {
-	char text[MORSE_TEXT_MAX];
+	static const subtone_t none = { TONE_NONE, 0 };
+	char text[MORSE_ID_MAX];
 	uint8_t n = radio_cwid_callsign(sm->radio_name, text, sizeof(text));
 	radio_cwid_sent(&sm->cwid, now_ms);
 	if (n == 0 || board.radio->tx_tone == NULL) {
@@ -7334,7 +7394,7 @@ static void cw_start_sfr(radio_sm_t *sm, uint32_t now_ms)
 	sm->view.dmr.sfr_busy = false;
 	sm->cw_sfr = true;
 	sm->view.dmr.sfr_cw = true;
-	(void)cw_begin(sm, sm->view.ch.tx_hz, sm->view.power, text, n, now_ms);
+	(void)cw_begin(sm, sm->view.ch.tx_hz, RADIO_BW_12K5, sm->view.power, &none, text, n, cw_speed(sm, NULL), 0, now_ms);
 }
 
 // A retune or hotspot mode in the middle of the repeater's ID: cut; the caller sets the board up for what follows
@@ -7347,8 +7407,125 @@ static void cw_cancel(radio_sm_t *sm)
 	board.radio->tx_off();
 	sm->cw_phase = CW_OFF;
 	sm->cw_key = false;
-	cw_ended(sm, false, 0);
+	cw_ended(sm, CW_END_CUT, 0);
 	sfr_rpt_end(sm);
+}
+#endif
+
+#if CONFIG_CW_SEND
+// A CW message may start: the radio idle on its channel, nothing else keyed or about to key, the same rules as an
+// APRS transmission (aprs_can_start) but without APRS's own
+static bool cwmsg_idle(const radio_sm_t *sm)
+{
+	if (sm->cw_phase != CW_OFF || sm->ptt || sm->hotspot || sm->view.state != RS_IDLE || sm->view.monitor ||
+	    sm->power_off_req) {
+		return false;
+	}
+#if CONFIG_APRS_AFSK
+	if (sm->aprs_phase != APRS_RF_OFF) {
+		return false;
+	}
+#endif
+#if CONFIG_SCAN
+	if (scan_on(&sm->scan)) {
+		return false;	// the receiver isn't on the channel the message would go out on
+	}
+#endif
+#if CONFIG_FM_TX_TONES
+	if (sm->roger_ms != 0 || sm->burst_keyed) {
+		return false;
+	}
+#if CONFIG_SATELLITE_TLE
+	if (sm->satellite_arm_active) {
+		return false;
+	}
+#endif
+#endif
+#if CONFIG_VOX
+	if (sm->vox_keyed) {
+		return false;
+	}
+#endif
+#if CONFIG_DMR
+	if ((sm->dmr_running && sm->view.dmr.state != RDMR_IDLE) || sm->dmr_keyed) {
+		return false;
+	}
+#if CONFIG_SFR
+	if (sm->sfr_rpt) {
+		return false;
+	}
+#endif
+#endif
+#if CONFIG_DMR_DATA_CORE
+	if (dmrDataServiceIsBusy()) {
+		return false;
+	}
+#endif
+#if CONFIG_DMR_ROAMING
+	if (sm->roam_probing) {
+		return false;
+	}
+#endif
+#if CONFIG_DMR_EMERGENCY
+	if (sm->em_keyed) {
+		return false;
+	}
+#endif
+#if CONFIG_AIR_RAW
+	if (sm->air_bench) {
+		return false;
+	}
+#endif
+	return true;
+}
+
+// RREQ_CW_SEND: the message handed over (radio_cwmsg_put) keyed on the channel, or refused with the reason
+static void cwmsg_start(radio_sm_t *sm, uint32_t now_ms)
+{
+	char text[MORSE_TEXT_MAX];
+	uint8_t n = radio_cwmsg_take(text, sizeof(text));
+	if (n == 0) {
+		return;
+	}
+	const channel_t *ch = &sm->view.ch;
+	if (ch->mode != RADIO_MODE_FM) {
+		radio_cwmsg_ended(CWMSG_NOT_FM, 0);	// MCW on a digital channel would put FM on a digital repeater's input
+		return;
+	}
+	if (!cwmsg_idle(sm)) {
+		radio_cwmsg_ended(CWMSG_BUSY, 0);
+		return;
+	}
+	if (tx_check(sm) != TXDENY_NONE || tx_held(sm) || ch->rx_only || board.radio->tx_tone == NULL) {
+		radio_cwmsg_ended(CWMSG_NO_TX, 0);
+		return;
+	}
+	uint8_t eff;
+	uint8_t wpm = cw_speed(sm, &eff);
+	uint32_t ms = CW_LEAD_MS + morse_ms(text, n, wpm, eff) + CW_TAIL_MS;
+	if (sm->view.tot_s != 0 && ms >= (uint32_t)sm->view.tot_s * 1000u) {
+		radio_cwmsg_ended(CWMSG_TOO_LONG, 0);	// the time-out never cuts a message: refused before any carrier
+		return;
+	}
+	sm->cw_msg = true;
+	sm->view.cw_tx = true;
+	sm->view.state = RS_TX;		// speaker off, red LED on, before keying
+	sm->view.tx_auto = true;
+	sm->view.last_tx_ms = now_ms != 0 ? now_ms : 1;
+	sm->view.tx_deny = TXDENY_NONE;
+	sm->view.tx_elapsed_ms = 0;
+	sm->tx_start_ms = now_ms;
+	sm->tot_warned = false;
+	sm->view.tot_warning = false;
+	(void)cw_begin(sm, ch->tx_hz, (radio_bw_t)ch->bw, sm->view.power, &ch->tx_tone, text, n, wpm, eff, now_ms);
+}
+
+// RREQ_CW_STOP, PTT, a retune: the message being keyed is cut at once (key up, carrier off, back to the channel)
+static void cwmsg_cut(radio_sm_t *sm, uint32_t now_ms)
+{
+	if (sm->cw_msg && sm->cw_phase != CW_OFF) {
+		cw_finish(sm, CW_END_CUT, 0, now_ms);
+	}
 }
 #endif
 
@@ -7365,13 +7542,12 @@ static void cw_service(radio_sm_t *sm, uint32_t now_ms)
 			sm->cw_ms = now_ms;
 		}
 	} else if (sm->cw_phase == CW_TAIL && (now_ms - sm->cw_ms) >= CW_TAIL_MS) {
-		uint32_t ms = now_ms - sm->cw_start_ms;
-		cw_restore(sm);
-		cw_ended(sm, true, ms);
-		changed(sm);
+		cw_finish(sm, CW_END_SENT, now_ms - sm->cw_start_ms, now_ms);
 	}
 }
-#endif
+#endif	// RADIO_SM_CW
+
+#if CONFIG_DMR
 
 static void hotspot_enter(radio_sm_t *sm, uint32_t rx_hz, uint32_t now_ms)
 {
@@ -8244,6 +8420,9 @@ void radio_sm_init(radio_sm_t *sm, uint32_t now_ms)
 #endif
 
 	memset(sm, 0, sizeof(*sm));
+#if CONFIG_CW_SEND
+	radio_cwmsg_reset();	// nothing keying: a message handed over before is gone
+#endif
 #if CONFIG_DMR_AES
 	radio_aes_start(st.aes_mi_res);
 #endif
@@ -9067,6 +9246,21 @@ void radio_sm_request(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 	if ((flags & (RQ_ALERT | RQ_KEEP_APRS)) == 0) {
 		aprs_rf_abort(sm, now_ms);	// the user does something: an APRS transmission gives way
 	}
+#if CONFIG_CW_SEND
+	// A CW message being keyed: PTT (either edge) stops it and does nothing else, so the press neither keys the
+	// microphone nor its release ends the keyer's transmission. A retune, the monitor or hotspot mode cut it first
+	if (sm->cw_msg) {
+		if (req->type == RREQ_PTT) {
+			if (req->arg != 0) {
+				cwmsg_cut(sm, now_ms);
+			}
+			return;
+		}
+		if (req->type == RREQ_MONITOR || req->type == RREQ_HS_ENTER || (flags & (RQ_RETUNES | RQ_SELECTED)) != 0) {
+			cwmsg_cut(sm, now_ms);
+		}
+	}
+#endif
 	bool busy = sm->view.state == RS_TX || sm->hotspot;	// no retuning while transmitting or a hotspot
 #if CONFIG_AIR_RAW
 	busy = busy || sm->air_bench;				// ... or while the air interface bench has the modem
@@ -9115,6 +9309,10 @@ void radio_sm_request(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 	case RREQ_VFO_STEP_SIZE: vfo_step_size_request(sm, req, now_ms); break;
 #endif
 	case RREQ_PTT: ptt_request(sm, req, now_ms); break;
+#if CONFIG_CW_SEND
+	case RREQ_CW_SEND: cwmsg_start(sm, now_ms); break;
+	case RREQ_CW_STOP: cwmsg_cut(sm, now_ms); break;
+#endif
 	case RREQ_MONITOR: monitor_request(sm, req, now_ms); break;
 	case RREQ_POWER: power_request(sm, req); break;
 	case RREQ_VOLUME:
@@ -9765,6 +9963,17 @@ void radio_sm_poll(radio_sm_t *sm, uint32_t now_ms)
 #endif
 
 	if (sm->view.state == RS_TX) {
+#if CONFIG_CW_SEND
+		if (sm->cw_msg) {
+			// The keyer runs the message (cw_service). Its length was checked against the time-out before the
+			// carrier came up; the time-out here is only a backstop
+			tx_timer(sm, now_ms);
+			if (sm->view.tot_s != 0 && sm->view.tx_elapsed_ms >= (uint32_t)sm->view.tot_s * 1000) {
+				cwmsg_cut(sm, now_ms);
+			}
+			return;
+		}
+#endif
 #if CONFIG_SATELLITE_TLE && CONFIG_FM_TX_TONES
 		if (sm->satellite_arm_active && (int32_t)(now_ms - sm->satellite_arm_end_ms) >= 0) {
 			sm->satellite_arm_active = false;

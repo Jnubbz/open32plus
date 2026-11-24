@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "radio/morse.h"
+#include "radio/radio_cwmsg.h"
 
 static int failures;
 #define CHECK(cond) do { if (!(cond)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); failures++; } } while (0)
@@ -146,8 +147,51 @@ static void test_long_text(void)
 	CHECK(morse_units(big, 200) == 160 * 1 + 159 * 3);
 }
 
+// morse_ms(): what the keyer takes, from the first element to the end of the last
+static void test_duration(void)
+{
+	uint32_t e[100];
+	CHECK(morse_ms("PARIS", 5, 20, 0) == 2580);
+	CHECK(morse_ms("PARIS", 5, 20, 10) == 4476);
+	CHECK(morse_ms("E E", 3, 20, 10) == 60 + 1525 + 60);
+	CHECK(morse_ms("<AR>", 4, 20, 10) == 780);
+	CHECK(morse_ms("", 0, 20, 0) == 0);
+	int n = edges("CQ CQ DE N0CALL", 25, 12, e, 100);	// 41 elements, 82 edges
+	CHECK(n == 82 && e[n - 1] == morse_ms("CQ CQ DE N0CALL", 15, 25, 12));
+}
+
+// CW messages' text (radio_cwmsg.c): what is keyed, and {CALL}
+static void test_cwmsg_text(void)
+{
+	char out[32];
+	CHECK(radio_cwmsg_clean("  cq  de\tkn0ble <ar>  ", out, sizeof out) == 17 && strcmp(out, "CQ DE KN0BLE <AR>") == 0);
+	CHECK(radio_cwmsg_clean("a#b ~ c", out, sizeof out) == 4 && strcmp(out, "AB C") == 0);	// no code: left out
+	CHECK(radio_cwmsg_clean("### $$$", out, sizeof out) == 0 && out[0] == '\0');
+	CHECK(radio_cwmsg_clean("ABCDEF GH", out, 8) == 6 && strcmp(out, "ABCDEF") == 0);	// full: cut at a character
+	CHECK(radio_cwmsg_expand("CQ DE {CALL} {CALL} K", "KN0BLE", out, sizeof out) == 21 &&
+	      strcmp(out, "CQ DE KN0BLE KN0BLE K") == 0);
+	CHECK(radio_cwmsg_expand("DE {CALL}", "", out, sizeof out) == 0);		// needs a callsign
+	CHECK(radio_cwmsg_expand("QRZ?", NULL, out, sizeof out) == 4);		// needs none
+	CHECK(radio_cwmsg_expand("DE {CALL}", "KN0BLE", out, 8) == 0);		// doesn't fit
+	// The handover: one message at a time, nothing to key refused
+	radio_cwmsg_reset();
+	radio_cwmsg_view_t v;
+	CHECK(radio_cwmsg_put("test") && !radio_cwmsg_put("again"));
+	CHECK(radio_cwmsg_take(out, sizeof out) == 4 && memcmp(out, "TEST", 4) == 0);
+	radio_cwmsg_get(&v);
+	CHECK(v.active);
+	radio_cwmsg_ended(CWMSG_SENT, 1234);
+	radio_cwmsg_get(&v);
+	CHECK(!v.active && v.last == CWMSG_SENT && v.sent == 1 && v.last_ms == 1234);
+	CHECK(!radio_cwmsg_put("#") && radio_cwmsg_take(out, sizeof out) == 0);
+	radio_cwmsg_get(&v);
+	CHECK(v.last == CWMSG_EMPTY && !v.active);
+}
+
 int main(void)
 {
+	test_duration();
+	test_cwmsg_text();
 	test_punctuation();
 	test_prosigns();
 	test_farnsworth();

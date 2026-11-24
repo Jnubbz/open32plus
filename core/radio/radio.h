@@ -457,6 +457,7 @@ typedef struct {
 	bool tx_auto;		// that TX is the radio's own, not the user's: a data list (ARS, an ACK), a roaming probe, an
 				// APRS beacon. It doesn't light the screen (radio_view_wakes)
 	bool aprs_tx;		// APRS has keyed the FM transmitter; the channel in ch is not the one on air
+	bool cw_tx;		// a CW message is being keyed on the channel (CONFIG_CW_SEND)
 	uint32_t last_tx_ms;	// hal_millis() when the last transmission began, 0 = none yet
 	uint16_t tot_s;		// TX time-out, 0 = none
 	uint32_t last_rx_ms;	// hal_millis() at the end of the last reception, 0 = none yet
@@ -606,6 +607,10 @@ radio_vfo_copy_t radio_req_vfo_copy_checked(void);
 // 8.33 kHz air band grid (radio/radio_am.h); 0 = auto, the width's: 12.5 kHz, 25 kHz wide or in the air band
 void radio_req_vfo_step_size(uint32_t hz);
 void radio_req_ptt(bool down);
+// CW messages (CONFIG_CW_SEND, docs/spec/morse.md 5): key text as Morse on the FM channel. False when another message
+// is active, nothing in the text can be keyed or the request was lost; the outcome is in radio_cwmsg_get()
+bool radio_req_cw_send(const char *text);
+void radio_req_cw_stop(void);			// stop the message being keyed
 // PTT for a host audio session (USRP, docs/spec/usb-audio.md): the host's samples go on air instead of the microphone
 // (FM: through the board's audio tap, refused without one; DMR: into the encoder, core/usbaudio/audio_mux.c). Up is
 // radio_req_ptt(false)

@@ -42,6 +42,12 @@ typedef struct {
 } flow_t;
 
 #define CALLER	"call:9991234,91,g wait:11000 "
+// Settings > CW (CONFIG_CW_SEND) is a group above Signaling tones: a flow counting groups up from the bottom past it
+#if CONFIG_CW_SEND
+#define FLOW_CW_GROUP_UP	"up "
+#else
+#define FLOW_CW_GROUP_UP	""
+#endif
 // 143 characters (UI_MSG_TEXT_MAX), the last word LAST
 #define LONG_TEXT	"Your_Special_Configuration_is:_Active_SMS:_LONG_SMS_Delay:_2.5_s_Retries:_3_Language:_English_" \
 	"Time_zone:_UTC_Units:_metric_Echo:_off_End_LAST"
@@ -1063,6 +1069,16 @@ static const flow_t flows[] = {
 	{ "A station opens its Message action", "ok 6 8 up up up ok", "ok", "screen=aprs-station shows=Message", 1, false },
 	{ "A station Message fills its callsign", "ok 6 8 up up up ok ok", "ok", "screen=compose shows=Q4WABC-15", 1, false },
 	{ "A new APRS message appears independently of DMR format", "", "ok 2", "shows=New_APRS_message", 2, false },
+#if CONFIG_CW_SEND
+	// CW messages (docs/spec/morse.md 5): Messages > Send CW (the last row), canned messages with {CALL}, the status
+	{ "C Messages offers Send CW", "", "ok 2", "shows=Send_CW", 2, false },
+	{ "C Send CW opens the CW composer", "ok 2", "up ok", "screen=cw-compose shows=QRZ?_DE_N0CALL_K", 2, false },
+	{ "C a canned CW message sends", "ok 2 up ok", "ok",
+	  "screen=cw-send sent=1 text=CQ_CQ_CQ_DE_N0CALL_N0CALL_K shows=Sending_CW...", 1, false },
+	{ "C Back stops a CW message", "ok 2 up ok ok", "back", "screen=home", 1, false },
+	{ "C Write... opens the message editor", "ok 2 up ok", "up ok", "screen=message-text", 2, false },
+	{ "C Settings > CW before Signaling tones", "ok 7", "up up up ok", "screen=group shows=Farnsworth shows=800_Hz", 4, false },
+#endif
 	{ "A new APRS message opens its composer", "ok 2", "ok", "screen=compose shows=To_callsign", 1, false },
 	{ "A new APRS message needs our callsign", "aprs:nocall ok 2", "", "hides=New_APRS_message", 0, false },
 	{ "A received APRS message opens in Messages", "aprs:message ok 2", "ok", "screen=message shows=Hello_APRS", 1, false },
@@ -1499,7 +1515,9 @@ static const flow_t flows_f[] = {
 	  "writes=1 toast=Saved_channel_3", 1, true },
 #endif
 	// No programmable keys: the Keys group ends at its three general rows (ui.md 3.1)
-	{ "F no key rows without keys", "ok up ok up up up up up ok", "down down down", "focus=Long hides=Key_1", 3, false },
+	// (Settings > CW sits between My radio and Signaling tones: one more Up from the bottom)
+	{ "F no key rows without keys", "ok up ok up up up up up " FLOW_CW_GROUP_UP "ok", "down down down",
+	  "focus=Long hides=Key_1", 3, false },
 #if CONFIG_ZONE_EDIT
 	// No CONTEXT: long OK opens a zone's list in Zones and Channel actions in the list (information-architecture 7.5)
 	{ "F 23 move the channel in use down", "", "ok down down down down ok long:ok long:ok down ok",

@@ -10,6 +10,9 @@
 #include "radio/radio_trunk.h"
 #include "hal_time.h"
 #include "config.h"
+#if CONFIG_CW_SEND
+#include "radio/radio_cwmsg.h"
+#endif
 #if CONFIG_HOTSPOT
 #include "hotspot/hotspot.h"
 #include "radio/radio_hotspot.h"
@@ -650,6 +653,21 @@ void radio_req_vfo_step_size(uint32_t hz) { post(RREQ_VFO_STEP_SIZE, (int32_t)hz
 void radio_req_ptt(bool down) { post(RREQ_PTT, down, pdMS_TO_TICKS(50)); }
 void radio_req_ptt_host(bool down) { post(RREQ_PTT, down ? 2 : 0, pdMS_TO_TICKS(50)); }
 void radio_req_monitor(bool down) { post(RREQ_MONITOR, down, pdMS_TO_TICKS(50)); }
+#if CONFIG_CW_SEND
+bool radio_req_cw_send(const char *text)
+{
+	if (requests == NULL || !radio_cwmsg_put(text)) {
+		return false;
+	}
+	radio_req_t req = { .type = RREQ_CW_SEND };
+	if (!send(&req, pdMS_TO_TICKS(50))) {
+		radio_cwmsg_ended(CWMSG_BUSY, 0);	// lost: the handover is free again
+		return false;
+	}
+	return true;
+}
+void radio_req_cw_stop(void) { post(RREQ_CW_STOP, 0, pdMS_TO_TICKS(50)); }
+#endif
 void radio_req_monitor_held_up(void) { post(RREQ_MONITOR, 2, pdMS_TO_TICKS(50)); }
 void radio_req_power(int8_t dir) { post(RREQ_POWER, dir, 0); }
 void radio_req_squelch(int8_t dir) { post(RREQ_SQUELCH, dir, 0); }

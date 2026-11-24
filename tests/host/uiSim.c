@@ -98,6 +98,11 @@ static const struct { const char *name, *script; } gallery[] = {
 	{ "contact_actions", "ok 1 5 6 ctx" },
 	{ "messages", "msg:9991234,Meet_at_the_north_lot msg:9995678,On_my_way wait:9000 ok 2" },
 	{ "messages_empty", "ok 2" },
+#if CONFIG_CW_SEND
+	{ "cw_compose", "ok 2 up ok" },		// Messages > Send CW (docs/spec/morse.md 5)
+	{ "cw_send", "ok 2 up ok ok" },		// a canned message keying
+	{ "settings_cw", "ok 7 up up up ok" },	// Settings > CW
+#endif
 	{ "recent", "call:9991234,91,g call:9995678,3100,g call:9992222,0,p ok 3" },
 	{ "zones", "ok 4" },
 	{ "channels", "ok 5" },

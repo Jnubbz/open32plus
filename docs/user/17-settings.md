@@ -183,6 +183,19 @@ When the keys lock by themselves and what still works while they are locked ([Ke
 | DMR ID and name | The radio model, then your DMR ID, the radio name and the two boot screen lines, as stored in the codeplug. On **DMR ID**, type a new ID with the digit keys (up to 16776415; the IDs above it are reserved for the network) and press **OK**: the radio writes it into the codeplug and uses it at once, and the Codeplug Editor or qdmr shows it on the next read. **Back** takes back the last digit, and with none left leaves the ID unchanged. On **Radio name**, **Boot 1** or **Boot 2**, **OK** opens text entry ([Text entry](07-channels-zones-vfo.md#text-entry)); **OK** there saves it, up to 16 characters |
 | About | The firmware version, its date and the radio model: the same page as **Settings > Advanced > About** (below) |
 
+### CW
+
+Between **My radio** and **Signaling tones**, on radios built with `CONFIG_CW_SEND`. The CW keyer: CW messages
+([Sending in CW](10-messages-and-signaling.md#sending-in-cw)) and the hotspot's and repeater's CW IDs.
+
+| Setting | What it does |
+|---|---|
+| Speed | Character speed, 5 to 40 wpm. Default 20 |
+| Farnsworth | Off, or the overall speed: characters at **Speed**, longer gaps between characters and words. For learning: copy fast characters with time to think. Only CW messages use it; the CW IDs keep standard spacing. Default Off |
+| Tone | The tone keyed, 400 to 1000 Hz. Default 800 Hz |
+
+<img src="../ux/screens/160x120i5/settings_cw.png" width="200" alt="Settings > CW">
+
 ### Advanced (last row)
 
 | Item | What it does |

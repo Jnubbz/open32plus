@@ -12,13 +12,25 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "config.h"
 
 #define MORSE_WPM_DEFAULT	20
 #define MORSE_WPM_MIN		5
 #define MORSE_WPM_MAX		40
 #define MORSE_TONE_HZ_DEFAULT	800
+#define MORSE_TONE_MIN_HZ	300	// the keyer's tone range (settings_t.cw_tone_hz)
+#define MORSE_TONE_MAX_HZ	3000
+#define MORSE_ID_MAX		40	// a CW ID's characters; a longer ID is cut (the SDR bench sends up to 40, MMDVMHost a callsign)
+// The characters morse_t holds; longer text is cut. CW messages (CONFIG_CW_SEND) need the message editor's length
 #ifndef MORSE_TEXT_MAX
-#define MORSE_TEXT_MAX		40	// characters keyed; a longer ID is cut (the SDR bench sends up to 40, MMDVMHost a callsign)
+#if CONFIG_CW_SEND
+#define MORSE_TEXT_MAX		144
+#else
+#define MORSE_TEXT_MAX		MORSE_ID_MAX
+#endif
+#endif
+#if MORSE_TEXT_MAX < MORSE_ID_MAX
+#error "MORSE_TEXT_MAX must hold a CW ID"
 #endif
 #if MORSE_TEXT_MAX > 255
 #error "MORSE_TEXT_MAX must fit morse_t's uint8_t positions"
@@ -52,6 +64,10 @@ uint32_t morse_units(const char *text, uint8_t len);
 // both clamped to MORSE_WPM_MIN..MAX. eff_wpm 0 or not below wpm: the standard 3 and 7 dots. Otherwise the ARRL
 // Farnsworth timing: the spacing that brings a 50 unit word down to eff_wpm, shared 3:7 between the two gaps
 void morse_gap_ms(uint8_t wpm, uint8_t eff_wpm, uint16_t *char_ms, uint16_t *word_ms);
+
+// How long text keys at wpm with Farnsworth spacing at eff_wpm (0 = standard), from the first element to the end of
+// the last, in ms: what morse_start_farnsworth() and morse_poll() take for it
+uint32_t morse_ms(const char *text, uint8_t len, uint8_t wpm, uint8_t eff_wpm);
 
 // Start keying text at now_ms (the first element starts at once)
 void morse_start(morse_t *m, const char *text, uint8_t len, uint8_t wpm, uint32_t now_ms);

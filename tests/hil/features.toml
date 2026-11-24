@@ -52,6 +52,10 @@ source = ["core/input", "core/ui/ui_menus.c", "core/ui/ui_svc_storage.c", "core/
 switch = "DTMF"
 spec = "docs/spec/radio-features.md"
 
+[feature.cw_send]
+switch = "CW_SEND"
+spec = "docs/spec/morse.md"
+
 [feature.vox]
 switch = "VOX"
 spec = "docs/spec/radio-features.md"

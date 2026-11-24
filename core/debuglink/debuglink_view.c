@@ -17,6 +17,9 @@
 #include "radio/tx_limit.h"
 #include "radio/pa_keyup.h"
 #include "storage/storage.h"
+#if CONFIG_CW_SEND
+#include "radio/radio_cwmsg.h"
+#endif
 #if CONFIG_VOICE_CAPTURE
 #include "dmr/ambe/ambeVoice.h"
 #endif
@@ -568,6 +571,26 @@ static void board_section(dl_text_t *t)
 	}
 }
 
+// CW messages (docs/spec/morse.md 5): keying now, the last outcome, the counters, the keyer's settings
+static void cw_section(const radio_view_t *v, dl_text_t *t)
+{
+#if CONFIG_CW_SEND
+	static const char *const results[] = { "none", "sent", "cut", "not_fm", "busy", "no_tx", "too_long", "empty" };
+	radio_cwmsg_view_t c;
+	radio_cwmsg_get(&c);
+	dl_text(t, "cw.built=1\ncw.tx=%u\ncw.active=%u\ncw.last=%s\ncw.serial=%u\n", v->cw_tx, c.active,
+		c.last < sizeof(results) / sizeof(results[0]) ? results[c.last] : "?", c.serial);
+	dl_text(t, "cw.requests=%u\ncw.sent=%u\ncw.cut=%u\ncw.refused=%u\ncw.last_ms=%u\n", c.requests, c.sent, c.cut,
+		c.refused, (unsigned)c.last_ms);
+	// The settings as stored (0 = the default: 20 wpm, standard spacing, 800 Hz); one field at a time, no copy on the stack
+	dl_text(t, "cw.wpm=%u\ncw.eff_wpm=%u\ncw.tone_hz=%u\n", SETTINGS_FIELD(cw_wpm), SETTINGS_FIELD(cw_eff_wpm),
+		SETTINGS_FIELD(cw_tone_hz));
+#else
+	(void)v;
+	dl_text(t, "cw.built=0\n");
+#endif
+}
+
 // The voice frames captured, in order: 18 hex digits a frame, L a lost one
 static void voice_cap_section(dl_text_t *t)
 {
@@ -599,7 +622,7 @@ static const char *const section_names[DL_VIEW_COUNT] = { "core", "channel", "dm
 						  "dmr_data_stats", "roam", "aprs", "aprs_set", "dmr_ip", "net", "snmp", "usrp",
 						  "sfr", "tasks", "crash", "watchdog", "reset", "air", "net_svc",
 						  "net_link", "cps", "board", "audio", "t3", "t3_svc", "t3_roam", "voice_cap", "t3_msg",
-						  "t3_ra", "p25", "p25_trunk", "nxdn" };
+						  "t3_ra", "p25", "p25_trunk", "nxdn", "cw" };
 
 const char *debuglink_view_name(uint8_t section)
 {
@@ -736,6 +759,9 @@ void debuglink_view_section(uint8_t section, const radio_view_t *v, dl_text_t *t
 		break;
 	case DL_VIEW_NXDN:
 		debuglink_view_nxdn(v, t);
+		break;
+	case DL_VIEW_CW:
+		cw_section(v, t);
 		break;
 	case DL_VIEW_USRP:
 #if CONFIG_NET_USRP

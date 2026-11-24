@@ -1750,6 +1750,66 @@ msgid "OK send  Back"
 msgstr "OK 发送  返回"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_WHY_ACTIVE"
+msgid "A CW message is already sending"
+msgstr "已有 CW 消息正在发送"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_EMPTY"
+msgid "Not sent: nothing to key"
+msgstr "未发送：无可发送内容"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_NO_CALLSIGN"
+msgid "No callsign: set the radio name to it"
+msgstr "无呼号：电台名称应为呼号"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_TITLE"
+msgid "Send CW"
+msgstr "发送 CW"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_STATE_SENDING"
+msgid "Sending CW..."
+msgstr "正在发送 CW..."
+
+#: core/ui/ui_menus.c
+msgctxt "CW_STATE_SENT"
+msgid "Sent"
+msgstr "已发送"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_STATE_STOPPED"
+msgid "Stopped"
+msgstr "已停止"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_NOT_FM"
+msgid "Not sent: CW needs an FM channel"
+msgstr "未发送：CW 仅限 FM 信道"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_BUSY"
+msgid "Not sent: the channel is busy"
+msgstr "未发送：信道忙"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_NO_TX"
+msgid "Not sent: can't transmit here"
+msgstr "未发送：此处不能发射"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_WHY_TOO_LONG"
+msgid "Not sent: longer than the TX time limit"
+msgstr "未发送：超过发射时限"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_HINT_SENDING"
+msgid "Back stop"
+msgstr "返回 停止"
+
+#: core/ui/ui_menus.c
 msgctxt "VALUE_NO_NAME"
 msgid "(no name)"
 msgstr "（无名称）"
@@ -1778,6 +1838,11 @@ msgstr "无联系人：请在 qdmr 添加"
 msgctxt "WHY_CONTACTS_NOT_IN_BUILD"
 msgid "Contacts: not in this build"
 msgstr "联系人：本版本无"
+
+#: core/ui/ui_menus.c
+msgctxt "MSG_ROW_SEND_CW"
+msgid "Send CW"
+msgstr "发送 CW"
 
 #: core/ui/ui_menus.c
 msgctxt "MSG_ROW_NEW_APRS"
@@ -4035,6 +4100,21 @@ msgid "SFR CW ID"
 msgstr "单频中继 CW ID"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_SPEED"
+msgid "Speed"
+msgstr "速度"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_FARNSWORTH"
+msgid "Farnsworth"
+msgstr "Farnsworth"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_TONE"
+msgid "Tone"
+msgstr "音调"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"
 msgid "Key type"
 msgstr "按键类型"
@@ -4258,6 +4338,11 @@ msgstr "按键"
 msgctxt "SET_ROW_MY_RADIO"
 msgid "My radio"
 msgstr "我的电台"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_ROW_CW"
+msgid "CW"
+msgstr "CW"
 
 #: core/ui/ui_menus.c
 msgctxt "SET_ROW_SIGNALING_TONES"
