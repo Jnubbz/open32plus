@@ -49,6 +49,7 @@ typedef enum {
 #if CONFIG_CW_SEND
 	SCR_CW_COMPOSE,			// Messages > Send CW: canned CW messages and Write... (docs/spec/morse.md 5)
 	SCR_CW_SEND,			// a CW message keying, or what became of it; Back stops it
+	SCR_CW_DECODE,			// Morse decoded from the FM channel while it is open
 #endif
 #if CONFIG_BACKLIGHT_TEST
 	SCR_BL_TEST,			// Settings > Advanced > Backlight tests
@@ -121,7 +122,7 @@ typedef struct {
 	bool (*key)(const input_event_t *ev);		// screen keys before the list's own (true: used)
 	void (*draw)(void);				// own drawing instead of the list
 	void (*enter)(void);				// on push
-#if CONFIG_BACKLIGHT_TEST || CONFIG_SATELLITE_TLE
+#if CONFIG_BACKLIGHT_TEST || CONFIG_SATELLITE_TLE || CONFIG_CW_DECODE
 	void (*leave)(void);				// on leaving the stack (BACK, Home, replaced)
 #endif
 	const ui_filter_def_t *filter;			// SF_FILTER: the rows before filtering (NULL: not a filtered list)

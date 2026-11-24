@@ -19,6 +19,9 @@
 #include "aprs/kiss.h"
 #include "aprs/afsk.h"
 #include "radio/tx_limit.h"
+#include "radio/morse.h"
+#include "radio/radio_cwdec.h"
+#include <math.h>
 #include "codeplug/codeplug_kv.h"	// the settings area fakes
 #include "fuzz.h"
 #include "ui/ui_svc_aprs.h"
@@ -42,6 +45,7 @@ static struct {
 	bool keyed;
 	uint16_t tone_hz;	// the TX tone in force (0 = the microphone)
 	uint8_t noise_on_aprs;	// noise reading on 144.390 (low = a carrier)
+	uint8_t noise_on_ch2;	// ... on CH2_HZ
 	// AFSK
 	uint8_t tones[600];
 	uint16_t nbits;
@@ -101,7 +105,7 @@ static void r_tx_off(void)
 }
 static void r_status(radio_status_t *st)
 {
-	st->noise = hw.rx_hz == APRS_HZ ? hw.noise_on_aprs : 120;
+	st->noise = hw.rx_hz == APRS_HZ ? hw.noise_on_aprs : hw.rx_hz == CH2_HZ ? hw.noise_on_ch2 : 120;
 	st->rssi_dbm = st->noise < 64 ? -80 : -120;	// a signal reads above the floor (a voice peak's noise doesn't drop it)
 	st->carrier = false;
 	st->tone_ok = true;
@@ -401,6 +405,7 @@ static void reset(void)
 	memset(&other_rx, 0, sizeof(other_rx));
 #endif
 	hw.noise_on_aprs = 120;
+	hw.noise_on_ch2 = 120;
 	nframes = 0;
 	memset(frames, 0, sizeof(frames));
 	now = 1000;
@@ -2067,8 +2072,85 @@ static void test_msg_poll(void)
 }
 #endif
 
+#if CONFIG_CW_DECODE
+// The CW decoder (radio_cwdec.c, morse.md 7) on a board's own receive path: off until the screen wants it, yields to
+// APRS on its frequency, starts on another FM channel, decodes only while the squelch is open, and flushes the last
+// word as it closes; the receiver stays awake meanwhile
+static void test_cw_decode(void)
+{
+	hal_afsk_t saved = fake_afsk;
+	fake_afsk = (hal_afsk_t){ .rx_rate_hz = 8000, .rx_start = b_rx_start, .rx_read = b_rx_read, .rx_stop = b_rx_stop };
+	memset(&brx, 0, sizeof(brx));
+	reset();
+	zone.count = 2;
+	zone.channels[1] = 2;
+	chan.rx_hz = chan.tx_hz = APRS_HZ;
+	settings_init();
+	radio_sm_init(&sm, now);
+	run(200);
+	radio_cwdec_view_t v;
+	char text[UI_CWDEC_TEXT_MAX];
+	radio_cwdec_get(&v, text, sizeof text);
+	CHECK(v.state == CWDEC_OFF && !radio_cwdec_running());
+	int starts = brx.starts;
+	radio_cwdec_want(true);
+	run(200);
+	radio_cwdec_get(&v, text, sizeof text);
+	CHECK(v.state == CWDEC_BUSY && !radio_cwdec_running());	// APRS listens here with the same audio
+	req(RREQ_CH_STEP, 1);
+	run(200);
+	radio_cwdec_get(&v, text, sizeof text);
+	CHECK(hw.rx_hz == CH2_HZ && v.state == CWDEC_LISTENING && radio_cwdec_running() && brx.starts > starts);
+
+	// "CQ DE KN0BLE" at 20 wpm, 700 Hz, 0.5 s in, while a carrier holds the squelch open
+	static int16_t audio[96000];
+	morse_t m;
+	morse_start(&m, "CQ DE KN0BLE", 12, 20, 500);
+	double env = 0, ph = 0;
+	size_t n = 0;
+	for (uint32_t ms = 0; (!m.done || ms < 700u) && n + 8u <= sizeof audio / sizeof audio[0]; ms++) {
+		bool key = morse_poll(&m, ms);
+		for (int i = 0; i < 8; i++) {
+			env += key ? 1.0 / 40 : -1.0 / 40;
+			env = env < 0 ? 0 : env > 1 ? 1 : env;
+			audio[n++] = (int16_t)(8000 * (1 - cos(M_PI * env)) / 2 * sin(ph));
+			ph += 2 * M_PI * 700 / 8000.0;
+		}
+	}
+	hw.noise_on_ch2 = 30;
+	run(200);	// the squelch opens; what came before it was noise, dropped
+	brx.s = audio;
+	brx.n = n;
+	brx.pos = 0;
+	for (int i = 0; i < 2000 && brx.pos < brx.n; i++) {
+		run(20);
+	}
+	radio_cwdec_get(&v, text, sizeof text);
+	CHECK(v.state == CWDEC_HEARING && v.hz == 700 && v.wpm >= 19 && v.wpm <= 21);
+	CHECK(!sm.save_on);	// no battery saving while it decodes
+	hw.noise_on_ch2 = 120;	// the carrier goes: the last word comes out
+	run(500);
+	radio_cwdec_get(&v, text, sizeof text);
+	CHECK(v.state == CWDEC_LISTENING && strcmp(text, "CQ DE KN0BLE ") == 0);
+	if (strcmp(text, "CQ DE KN0BLE ") != 0) printf("  decoded \"%s\"\n", text);
+	// # clears; closing the screen stops the audio
+	radio_cwdec_clear();
+	run(100);
+	radio_cwdec_get(&v, text, sizeof text);
+	CHECK(text[0] == 0);
+	int stops = brx.stops;
+	radio_cwdec_want(false);
+	run(100);
+	CHECK(!radio_cwdec_running() && brx.stops == stops + 1);
+	fake_afsk = saved;
+}
+#endif
+
 int main(void)
 {
+#if CONFIG_CW_DECODE
+	test_cw_decode();
+#endif
 	test_defaults();
 	test_beacon_on_air();
 	test_tx_limit();

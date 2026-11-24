@@ -99,9 +99,13 @@ static const struct { const char *name, *script; } gallery[] = {
 	{ "messages", "msg:9991234,Meet_at_the_north_lot msg:9995678,On_my_way wait:9000 ok 2" },
 	{ "messages_empty", "ok 2" },
 #if CONFIG_CW_SEND
-	{ "cw_compose", "ok 2 up ok" },		// Messages > Send CW (docs/spec/morse.md 5)
-	{ "cw_send", "ok 2 up ok ok" },		// a canned message keying
+	// Messages > Send CW (docs/spec/morse.md 5), above Decode CW where that is built
+	{ "cw_compose", CONFIG_CW_DECODE ? "ok 2 up up ok" : "ok 2 up ok" },
+	{ "cw_send", CONFIG_CW_DECODE ? "ok 2 up up ok ok" : "ok 2 up ok ok" },	// a canned message keying
 	{ "settings_cw", "ok 7 up up up ok" },	// Settings > CW
+#endif
+#if CONFIG_CW_DECODE
+	{ "cw_decode", "ok 2 up ok" },		// Messages > Decode CW, hearing a station
 #endif
 	{ "recent", "call:9991234,91,g call:9995678,3100,g call:9992222,0,p ok 3" },
 	{ "zones", "ok 4" },

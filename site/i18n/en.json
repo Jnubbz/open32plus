@@ -353,6 +353,7 @@
  "screen.messages_empty": "Messages, empty",
  "screen.cw_compose": "Send CW: canned messages",
  "screen.cw_send": "Sending CW",
+ "screen.cw_decode": "Decoding CW",
  "screen.messages": "Messages",
  "screen.position": "Position (APRS)",
  "screen.aprs_station": "Heard station details",

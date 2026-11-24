@@ -302,6 +302,12 @@
     "CW_SEND"
    ]
   },
+  "cw_decode": {
+   "group": "messages",
+   "needs": [
+    "CW_DECODE"
+   ]
+  },
   "message_view": {
    "group": "messages",
    "needs": [

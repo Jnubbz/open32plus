@@ -15,6 +15,9 @@
 #if CONFIG_CW_SEND
 #include "radio/radio_cwmsg.h"
 #endif
+#if CONFIG_CW_DECODE
+#include "radio/radio_cwdec.h"
+#endif
 #include "radio/radio_bcast.h"
 #include "codeplug/codeplug_modes.h"	// channel kinds: a trunked one is never watched
 #include "input/input.h"
@@ -584,5 +587,34 @@ uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap)
 	ui_svc_name_get(UI_NAME_RADIO, name);
 	radio_cwid_callsign(name, call, sizeof(call));	// the SFR CW ID's rule: empty when the name isn't a callsign
 	return radio_cwmsg_expand(tmpl, call, out, cap);
+}
+#endif
+
+#if CONFIG_CW_DECODE
+// The CW decoder (docs/spec/morse.md 7): the radio task decodes, the text waits in radio_cwdec.c
+_Static_assert((int)UI_CWDEC_OFF == (int)CWDEC_OFF && (int)UI_CWDEC_LISTENING == (int)CWDEC_LISTENING &&
+	       (int)UI_CWDEC_HEARING == (int)CWDEC_HEARING && (int)UI_CWDEC_NOT_FM == (int)CWDEC_NOT_FM &&
+	       (int)UI_CWDEC_BUSY == (int)CWDEC_BUSY && (int)UI_CWDEC_NO_PATH == (int)CWDEC_NO_PATH,
+	       "ui_cwdec_t.state is a cwdec_state_t");
+_Static_assert(UI_CWDEC_TEXT_MAX == CWDEC_TEXT_MAX, "the UI's copy of the decoded text holds it all");
+
+void ui_svc_cw_decode(bool on)
+{
+	radio_cwdec_want(on);
+}
+
+void ui_svc_cw_decode_clear(void)
+{
+	radio_cwdec_clear();
+}
+
+void ui_svc_cw_decode_get(ui_cwdec_t *out, char *text, size_t max)
+{
+	radio_cwdec_view_t v;
+	radio_cwdec_get(&v, text, max);
+	out->state = v.state;
+	out->hz = v.hz;
+	out->wpm = v.wpm;
+	out->serial = v.serial;
 }
 #endif

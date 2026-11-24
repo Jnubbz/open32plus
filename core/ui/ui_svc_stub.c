@@ -106,6 +106,9 @@ WEAK bool ui_svc_cw_send(const char *text) { (void)text; return false; }
 WEAK void ui_svc_cw_stop(void) {}
 WEAK void ui_svc_cw_get(ui_cw_t *out) { memset(out, 0, sizeof(*out)); }
 WEAK uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap) { (void)tmpl; if (cap) out[0] = 0; return 0; }
+WEAK void ui_svc_cw_decode(bool on) { (void)on; }
+WEAK void ui_svc_cw_decode_clear(void) {}
+WEAK void ui_svc_cw_decode_get(ui_cwdec_t *out, char *text, size_t max) { memset(out, 0, sizeof(*out)); if (max) text[0] = 0; }
 
 WEAK bool ui_svc_position(ui_position_t *out) { (void)out; return false; }
 #if CONFIG_GPS && CONFIG_POSITION && CONFIG_SATELLITE_TLE

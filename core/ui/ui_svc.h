@@ -231,6 +231,19 @@ void ui_svc_cw_stop(void);			// stop the message being keyed
 void ui_svc_cw_get(ui_cw_t *out);
 // A canned message with {CALL} as the callsign in the radio name; 0 when it needs one and there is none
 uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap);
+// --- The CW decoder (CONFIG_CW_DECODE, docs/spec/morse.md 7) ---
+// Its state, as the radio core's cwdec_state_t
+#define UI_CWDEC_TEXT_MAX	160u	// the decoded text kept, with its terminator (radio_cwdec.h)
+enum { UI_CWDEC_OFF, UI_CWDEC_LISTENING, UI_CWDEC_HEARING, UI_CWDEC_NOT_FM, UI_CWDEC_BUSY, UI_CWDEC_NO_PATH };
+typedef struct {
+	uint8_t state;		// UI_CWDEC_*
+	uint16_t hz;		// the tone locked on, 0 none yet
+	uint8_t wpm;		// the speed learned
+	uint32_t serial;	// moves on with the text
+} ui_cwdec_t;
+void ui_svc_cw_decode(bool on);			// the screen opened (true, the text starts afresh) or closed
+void ui_svc_cw_decode_clear(void);
+void ui_svc_cw_decode_get(ui_cwdec_t *out, char *text, size_t max);	// the newest text that fits, terminated
 // ARS registration with the presence server (Settings > Connections > Data services), as dmrArsState_t
 enum { UI_ARS_OFF, UI_ARS_REGISTERING, UI_ARS_REGISTERED, UI_ARS_REFUSED, UI_ARS_NO_ANSWER };
 uint8_t ui_svc_ars_state(void);

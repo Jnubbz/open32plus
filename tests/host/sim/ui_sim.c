@@ -2285,6 +2285,32 @@ uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap)
 	return (uint8_t)n;
 }
 #endif
+#if CONFIG_CW_DECODE
+// The CW decoder: hearing a station at 800 Hz, 18 wpm, with some text already (the gallery's cw-decode); # clears it
+static bool sim_cwdec_on;
+static uint32_t sim_cwdec_serial;
+static const char sim_cwdec_heard[] = "CQ CQ CQ DE W1AW W1AW K KN0BLE DE W1AW GM OM UR RST 599 599 IN NEWINGTON CT ";
+static char sim_cwdec_text[UI_CWDEC_TEXT_MAX];
+void ui_svc_cw_decode(bool on)
+{
+	sim_cwdec_on = on;
+	if (on)
+		strcpy(sim_cwdec_text, sim_cwdec_heard);	// each opening hears the same, whatever a flow cleared before
+}
+void ui_svc_cw_decode_clear(void) { sim_cwdec_text[0] = 0; sim_cwdec_serial++; }
+void ui_svc_cw_decode_get(ui_cwdec_t *out, char *text, size_t max)
+{
+	out->state = sim_cwdec_on ? UI_CWDEC_HEARING : UI_CWDEC_OFF;
+	out->hz = 800;
+	out->wpm = 18;
+	out->serial = sim_cwdec_serial;
+	if (max != 0) {
+		size_t n = strlen(sim_cwdec_text), from = n + 1u > max ? n + 1u - max : 0u;
+		memcpy(text, sim_cwdec_text + from, n - from);
+		text[n - from] = 0;
+	}
+}
+#endif
 bool ui_svc_radio_check(uint32_t id) { sim_rec.radio_checks++; check_id = id; check_due = now_ms + 800; return true; }
 bool ui_svc_call_alert(uint32_t id) { (void)id; sim_rec.call_alerts++; return true; }
 // A GPS + BeiDou receiver near Boston with a 3D fix: 9 of 14 satellites used

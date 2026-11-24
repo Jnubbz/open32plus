@@ -116,6 +116,32 @@ Speed, Farnsworth spacing and tone are in **Settings > CW** ([Settings](17-setti
 
 <img src="../ux/screens/160x120i5/cw_compose.png" width="200" alt="Messages > Send CW">
 
+## Decoding CW
+
+**Messages > Decode CW** shows Morse heard on the FM channel as text. It decodes MCW, a keyed tone in FM, the way
+**Send CW** sends it. It can't decode HF CW: the radio receives FM only. Which radios have it:
+[feature-matrix.md](../feature-matrix.md).
+
+1. Pick the FM channel, then open **Messages > Decode CW**. The radio listens while the screen is open.
+2. When a station keys, the status row says **Hearing**, with the tone and speed it found ("800 Hz 18 wpm"). The text
+   fills in above it, the newest at the bottom. It finds the tone (400 to 1000 Hz) and the speed (5 to 40 wpm) by
+   itself, and learns them again after each over.
+3. **#** clears the text. **Back** closes the screen and stops the decoder.
+
+| Status | What it means |
+|---|---|
+| Listening | Waiting for a signal: it decodes only while the squelch is open |
+| Hearing | Decoding |
+| Needs an FM channel | The channel is DMR, P25 or NXDN |
+| Paused: transmitting or APRS | You are transmitting, or the channel is the APRS frequency, where APRS listens |
+| This radio can't decode | The radio can't sample received audio |
+
+A character it can't read shows as `*`. With Farnsworth spacing the first word may come out spaced oddly; the words
+after are whole. Battery saving is off while the screen is open, so the first letters aren't lost. The details are in
+[morse.md](../spec/morse.md) 7.
+
+<img src="../ux/screens/160x120i5/cw_decode.png" width="200" alt="Messages > Decode CW">
+
 ## Message formats
 
 **Settings > Connections > Message format** picks the encoding of new DMR messages. The setting does not affect

@@ -16,7 +16,7 @@ Past bugs, by subsystem: [gotchas.md](gotchas.md). Contributors read [docs/dev](
 | [radio-features.md](radio-features.md) | Scan, the FM transmit extras (tones, burst, roger beep), beeps, battery and power management |
 | [airband-and-broadcast.md](airband-and-broadcast.md) | Air band AM receive and broadcast FM receive, chosen by the frequency |
 | [aprs.md](aprs.md) | APRS on FM and over DMR |
-| [morse.md](morse.md) | Morse timing: PARIS, Farnsworth spacing, prosigns |
+| [morse.md](morse.md) | Morse timing: PARIS, Farnsworth spacing, prosigns; CW messages; the CW decoder |
 | [position.md](position.md) | The radio's position: sources, settings, who reads it |
 | [satellite.md](satellite.md) | PC-managed orbital data, satellite passes and Doppler frequency compensation |
 | [ui.md](ui.md) | The user interface as built: screens, keys, the drawing layer ([docs/ux](../ux/) has the design) |
