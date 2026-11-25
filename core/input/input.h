@@ -42,6 +42,8 @@ void input_set_dtmf_block(bool blocked);
 // The key map in use (core/input/keyassign.c builds it): board.keymap_len entries, the board's keys in the board's
 // order with other actions. Copied; in effect once no key is held
 void input_set_keymap(const keymap_entry_t *map);
+// The bug's paddles on or off (input_paddle_map, docs/spec/morse.md 10): in effect once no key is held, as a new map
+void input_set_paddles(bool on);
 
 // --- Injection (the debug link, core/debuglink): host-driven keys processed by the input task exactly like real ones.
 // Injected physical key bits are ORed into the scan mask, so they go through the same debounce and gesture engine

@@ -571,6 +571,13 @@ void ui_svc_cw_stop(void)
 	radio_req_cw_stop();
 }
 
+#if CONFIG_CW_BUG
+void ui_svc_cw_paddles(bool on)
+{
+	input_set_paddles(on);
+}
+#endif
+
 void ui_svc_cw_get(ui_cw_t *out)
 {
 	radio_cwmsg_view_t v;

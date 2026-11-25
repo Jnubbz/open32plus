@@ -2269,6 +2269,9 @@ void ui_svc_cw_stop(void)
 	}
 }
 void ui_svc_cw_get(ui_cw_t *out) { *out = sim_cw; }
+// The bug's paddles (morse.md 10): only whether they are on, for the flows (paddles=)
+bool sim_paddles;
+void ui_svc_cw_paddles(bool on) { sim_paddles = on; }
 uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap)
 {
 	size_t n = 0;

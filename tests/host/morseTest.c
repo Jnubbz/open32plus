@@ -11,6 +11,7 @@
 #include "radio/morse_decode.h"
 #include "radio/cw_hand.h"
 #include "radio/cw_qso.h"
+#include "radio/cw_bug.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -472,6 +473,80 @@ static void test_qso(void)
 	CHECK(cw_qso_fill("{THEM}", "W1AW", out, 5) == 4 && cw_qso_fill("{THEM}", "W1AW", out, 4) == 0);
 }
 
+// ---- The bug (cw_bug.c, morse.md 10): the dit paddle's dits at the keyer's speed, each whole; the dah by hand ----
+
+// The key's edges the bug made, as "D<ms> U<ms> ..." from the delay line's queue
+static void bug_edges(const cw_hand_t *h, char *out, size_t max)
+{
+	size_t n = 0;
+	out[0] = 0;
+	for (uint8_t k = 0; k < h->n; k++) {
+		uint8_t i = (uint8_t)((h->head + k) % CW_HAND_EDGES);
+		n += (size_t)snprintf(out + n, max - n, "%s%c%u", n ? " " : "", ((h->down >> i) & 1u) ? 'D' : 'U',
+				      (unsigned)h->t[i]);
+	}
+}
+
+static void test_bug(void)
+{
+	cw_bug_t b;
+	cw_hand_t h;
+	char e[200];
+	const uint32_t dot = 60;	// 20 wpm
+	// The dit paddle held 250 ms: dits at 1000, 1120, 1240 (still held at 1240), each 60 ms, then it stops at 1360
+	cw_bug_start(&b, 1000);
+	cw_hand_start(&h, 1000);
+	CHECK(cw_bug_edge(&b, false, true, 1000) && cw_bug_edge(&b, false, false, 1250));
+	CHECK(cw_bug_run(&b, 2000, dot, &h));
+	bug_edges(&h, e, sizeof e);
+	CHECK(strcmp(e, "D1000 U1060 D1120 U1180 D1240 U1300") == 0);
+	if (strcmp(e, "D1000 U1060 D1120 U1180 D1240 U1300") != 0) printf("  got %s\n", e);
+	CHECK(cw_bug_idle(&b));
+	// A tap shorter than a dit still makes one whole dit; the dah is as long as it is held
+	cw_bug_start(&b, 0);
+	cw_hand_start(&h, 0);
+	CHECK(cw_bug_edge(&b, false, true, 100) && cw_bug_edge(&b, false, false, 120));
+	CHECK(cw_bug_edge(&b, true, true, 400) && cw_bug_edge(&b, true, false, 637));
+	CHECK(cw_bug_run(&b, 1000, dot, &h));
+	bug_edges(&h, e, sizeof e);
+	CHECK(strcmp(e, "D100 U160 D400 U637") == 0);
+	if (strcmp(e, "D100 U160 D400 U637") != 0) printf("  got %s\n", e);
+	// Run in pieces as the radio core does, with an edge arriving after its time was passed: the same key
+	cw_bug_start(&b, 0);
+	cw_hand_start(&h, 0);
+	CHECK(cw_bug_edge(&b, false, true, 10));
+	for (uint32_t t = 10; t <= 200; t += 10) {
+		CHECK(cw_bug_run(&b, t, dot, &h));
+	}
+	CHECK(cw_bug_edge(&b, false, false, 190));	// released at 190, heard at 200: the third dit at 250 doesn't start
+	for (uint32_t t = 210; t <= 400; t += 10) {
+		CHECK(cw_bug_run(&b, t, dot, &h));
+	}
+	bug_edges(&h, e, sizeof e);
+	CHECK(strcmp(e, "D10 U70 D130 U190") == 0);
+	if (strcmp(e, "D10 U70 D130 U190") != 0) printf("  got %s\n", e);
+	CHECK(cw_bug_idle(&b));
+	// Both paddles: the dah holds the key down through the dits; the dits go on after it
+	cw_bug_start(&b, 0);
+	cw_hand_start(&h, 0);
+	CHECK(cw_bug_edge(&b, false, true, 0) && cw_bug_edge(&b, true, true, 30) && cw_bug_edge(&b, true, false, 200) &&
+	      cw_bug_edge(&b, false, false, 250));
+	CHECK(cw_bug_run(&b, 1000, dot, &h));
+	bug_edges(&h, e, sizeof e);
+	CHECK(strcmp(e, "D0 U200 D240 U300") == 0);
+	if (strcmp(e, "D0 U200 D240 U300") != 0) printf("  got %s\n", e);
+	// Held: not idle; a full paddle queue refuses
+	cw_bug_start(&b, 0);
+	cw_hand_start(&h, 0);
+	CHECK(cw_bug_edge(&b, true, true, 0) && cw_bug_run(&b, 50, dot, &h) && !cw_bug_idle(&b));
+	cw_bug_start(&b, 0);
+	bool ok = true;
+	for (unsigned i = 0; i < CW_BUG_EDGES; i++) {
+		ok = ok && cw_bug_edge(&b, true, (i & 1u) == 0, i);
+	}
+	CHECK(ok && !cw_bug_edge(&b, true, true, 99));
+}
+
 int main(void)
 {
 	test_duration();
@@ -483,6 +558,7 @@ int main(void)
 	test_decode();
 	test_hand();
 	test_qso();
+	test_bug();
 	if (failures != 0) {
 		printf("morseTest: %d failure(s)\n", failures);
 		return 1;

@@ -228,6 +228,7 @@ typedef struct {
 } ui_cw_t;
 bool ui_svc_cw_send(const char *text);		// key text as Morse on the FM channel; false: refused at once (ui_svc_cw_get)
 void ui_svc_cw_stop(void);			// stop the message being keyed
+void ui_svc_cw_paddles(bool on);		// OK and Back as the bug's paddles (CONFIG_CW_BUG, morse.md 10)
 void ui_svc_cw_get(ui_cw_t *out);
 // A canned message with {CALL} as the callsign in the radio name; 0 when it needs one and there is none
 uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap);

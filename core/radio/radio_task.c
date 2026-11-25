@@ -716,6 +716,12 @@ static void post_pair(uint8_t type, int32_t arg, uint32_t arg2, TickType_t wait)
 // The edge's own time travels with it: the keying is played from these times, not from when the radio task took it
 void radio_req_cw_key(bool down) { post_pair(RREQ_CW_KEY, down, hal_millis(), pdMS_TO_TICKS(50)); }
 #endif
+#if CONFIG_CW_BUG
+void radio_req_cw_paddle(bool dah, bool down)
+{
+	post_pair(RREQ_CW_PADDLE, (down ? 1 : 0) | (dah ? 2 : 0), hal_millis(), pdMS_TO_TICKS(50));
+}
+#endif
 
 #if CONFIG_DMR || CONFIG_P25 || CONFIG_NXDN
 void radio_req_mode(uint8_t mode) { post(RREQ_MODE, mode, 0); }

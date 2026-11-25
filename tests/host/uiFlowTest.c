@@ -1113,6 +1113,15 @@ static const flow_t flows[] = {
 	{ "C Back from a written CW message returns to the CW list", "ok 2 " TO_SEND_CW " ok up ok 2 ok", "back",
 	  "screen=cw-compose", 1, false },
 	{ "C Back from the CW list returns to Messages", "ok 2 " TO_SEND_CW " ok", "back", "screen=messages", 1, false },
+#if CONFIG_CW_BUG
+	// Key by hand (morse.md 10): before Write..., the paddles while open; Back is the dah paddle there, so Up, Down
+	// and # close it (in the sim OK and Back stay unmapped and do nothing). The sim's channel is DMR
+	{ "C Key by hand opens the bug", "ok 2 " TO_SEND_CW " ok", "up up ok",
+	  "screen=cw-key shows=OK:_dits shows=Needs_an_FM_channel", 3, false },
+	{ "C Back doesn't leave Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "back ok", "screen=cw-key", 2, false },
+	{ "C Up closes Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "up", "screen=cw-compose", 1, false },
+	{ "C # closes Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "ctx", "screen=cw-compose", 1, false },
+#endif
 	{ "C Write... opens the message editor", "ok 2 " TO_SEND_CW " ok", "up ok", "screen=message-text", 2, false },
 	// Morse has no case: the CW editor's letter keys skip lower case (2: A B C 2, then A again) and # skips abc
 	{ "C CW editor types capitals only", "ok 2 " TO_SEND_CW " ok up ok", "2 2 2 2 2 ok", "screen=cw-send text=A", 6, false },

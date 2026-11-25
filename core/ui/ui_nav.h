@@ -50,6 +50,9 @@ typedef enum {
 	SCR_CW_COMPOSE,			// Messages > Send CW: canned CW messages and Write... (docs/spec/morse.md 5)
 	SCR_CW_SEND,			// a CW message keying, or what became of it; Back stops it
 #endif
+#if CONFIG_CW_BUG
+	SCR_CW_KEY,			// Send CW > Key by hand: OK and Back a bug's paddles while open (morse.md 10)
+#endif
 #if CONFIG_CW_DECODE
 	SCR_CW_DECODE,			// Morse decoded from the FM channel while it is open (morse.md 7; on with APRS_RX)
 #endif

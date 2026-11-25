@@ -12,6 +12,7 @@
 #include "radio/battery.h"
 #include "radio/morse.h"
 #include "radio/cw_hand.h"
+#include "radio/cw_bug.h"
 #include "radio/radio_cwid.h"
 #include "radio/beep.h"	// beep_seg_t
 #include "radio/sigtone.h"	// SIG_STEPS
@@ -203,6 +204,7 @@ typedef enum {
 	RREQ_CW_SEND,		// key the CW message handed over (radio_cwmsg_put, CONFIG_CW_SEND)
 	RREQ_CW_STOP,		// stop the CW message being keyed
 	RREQ_CW_KEY,		// a straight key's edge (CONFIG_CW_SEND): arg 1 down, 0 up; arg2 its time in ms
+	RREQ_CW_PADDLE,		// a bug paddle's edge (CONFIG_CW_BUG): arg bit 0 down, bit 1 the dah paddle; arg2 its time
 	// New request types go above
 
 	RREQ_COUNT		// KEEP LAST: sizes req_flags[] (radio_sm.c)
@@ -453,6 +455,12 @@ typedef struct {
 	bool cw_hand;
 	cw_hand_t hand;
 	uint16_t hand_lead_ms, hand_hang_ms;
+#if CONFIG_CW_BUG
+	// ... the bug's paddles making that key (morse.md 10)
+	bool cw_bug;
+	cw_bug_t bug;
+	uint16_t bug_dot_ms;
+#endif
 #endif
 #endif
 #if CONFIG_DMR

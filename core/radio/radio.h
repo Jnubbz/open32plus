@@ -613,6 +613,8 @@ bool radio_req_cw_send(const char *text);
 void radio_req_cw_stop(void);			// stop the message being keyed
 // A straight key on a side key (morse.md 8): its press or release, stamped with the time it happened here
 void radio_req_cw_key(bool down);
+// The bug's paddles (morse.md 10): the dit or dah paddle's press or release, stamped as above
+void radio_req_cw_paddle(bool dah, bool down);
 // PTT for a host audio session (USRP, docs/spec/usb-audio.md): the host's samples go on air instead of the microphone
 // (FM: through the board's audio tap, refused without one; DMR: into the encoder, core/usbaudio/audio_mux.c). Up is
 // radio_req_ptt(false)
