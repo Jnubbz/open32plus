@@ -96,7 +96,7 @@ below are for an STM32F4 radio.
 | `CONFIG_CW_SEND` | = FM_TX_TONES | CW messages: canned or typed text keyed as Morse (MCW) on an FM channel, Settings > CW (`docs/spec/morse.md` 5). About 300 bytes of RAM |
 | `CONFIG_CW_BUG` | = CW_SEND | Send CW > Key by hand: a semi-automatic key (bug) on the OK and Back keys. OK sends dits at the keyer's speed while held, Back a hand-timed dah (`docs/spec/morse.md` 10) |
 | `CONFIG_CW_QSO` | = CW_SEND and CW_DECODE | The CW QSO helper: Decode CW > OK lists the callsigns heard, and picking one opens exchange lines with it filled in, sent as CW messages (`docs/spec/morse.md` 9) |
-| `CONFIG_CW_DECODE` | = APRS_RX | The CW decoder: Messages > Decode CW shows Morse decoded from the FM channel (`docs/spec/morse.md` 7). Needs APRS_RX's received-audio path. About 860 bytes of RAM |
+| `CONFIG_CW_DECODE` | = APRS_RX | The CW decoder: Messages > Decode CW shows Morse decoded from the FM channel (`docs/spec/morse.md` 7). Needs APRS_RX's received-audio path. About 880 bytes of RAM |
 | `CONFIG_VOX` | = FM (n where the mic level hook isn't written) | voice-operated transmit on FM, from the microphone level (`hal_power_t.mic_level`; `docs/spec/radio-features.md` 3.4) |
 | `CONFIG_BATTERY_SAVE` | = FM | receiver duty cycling on an idle FM channel (`docs/spec/radio-features.md` 5.4) |
 | `CONFIG_VIBRATE` | n (radios with a vibration motor: y) | vibration alerts on the board's motor (`hal_power_t.vibrate`) for messages, call alerts, private calls and emergencies, and Settings > Sound > Vibrate (`docs/spec/radio-features.md` 4.1). No radio on main has a motor yet; a board without one shows the row dimmed |
