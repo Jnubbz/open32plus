@@ -10,6 +10,9 @@ registry as tools/serial_loader.py reads it), their flash layout (data/c7000.jso
 "c7000") and, with --firmware, each such radio's image and manifest from DIR (a release's assets:
 rfoundry-<board>-<version>.bin and .json), described in data/release.json. Without one the page installs only a file
 the user picks.
+With --editor SITE (a site/build.py output), the codeplug editor joins it under editor/: the site's codeplug page with
+an open32plus header and footer, the site's scripts and styles, and its radio list, so the page edits channels, zones
+and contacts on a radio over its cable without RadioFoundry's web site.
   tools/installer_build.py --self-test
 """
 import argparse
@@ -55,6 +58,78 @@ def modules():
     return sorted(seen)
 
 
+EDITOR = "editor"
+EDITOR_IMG = ["icon.svg", "icon-32.png", "apple-touch-icon.png"]
+EDITOR_HEADER = """<header class="site-header">
+	<div class="wrap header-row">
+		<a class="brand" href="../../index.html">
+			<img src="../static/img/icon.svg" alt="" width="28" height="28">
+			<span>open32<b>plus</b></span>
+		</a>
+		<nav id="site-nav" class="site-nav" aria-label="Site"><a href="../../index.html">Install</a> <a href="./" aria-current="page">Channels &amp; zones</a></nav>
+		<div class="header-tools">
+			<button class="theme-toggle" type="button" aria-label="Theme" title="Theme">&#9680;</button>
+		</div>
+	</div>
+</header>"""
+EDITOR_FOOTER = """<footer class="site-footer">
+	<div class="wrap footer-row">
+		<p>open32plus, based on <a href="https://github.com/radiofoundry/radiofoundry">RadioFoundry</a> &middot; MIT license &middot; <a href="%s">Source</a> &middot; <a href="%s/issues">Report a problem</a></p>
+	</div>
+</footer>"""
+
+
+def redirect(path, to):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write('<!doctype html>\n<!-- SPDX-License-Identifier: MIT -->\n<meta charset="utf-8"><title>open32plus</title>'
+                '<meta http-equiv="refresh" content="0; url=%s"><a href="%s">%s</a>\n' % (to, to, to))
+
+
+def editor_page(html, repo_url):
+    """The site's codeplug page as open32plus's: its own header and footer, no other languages (the page is English
+    only here), the name"""
+    html = re.sub(r'<header class="site-header">.*?</header>', lambda m: EDITOR_HEADER, html, count=1, flags=re.S)
+    html = re.sub(r'<footer class="site-footer">.*?</footer>', lambda m: "@@FOOTER@@", html, count=1, flags=re.S)
+    html = re.sub(r'<link rel="alternate"[^>]*>\s*', "", html)
+    html = html.replace("RadioFoundry", "open32plus")
+    return html.replace("@@FOOTER@@", EDITOR_FOOTER % (repo_url, repo_url))
+
+
+def add_editor(site, out, repo_url=REPO_URL):
+    """The codeplug editor from a built site (site/build.py --out SITE) under out/editor/: the page at
+    editor/codeplug/, its own static/ and data/ (the installer's data/ is another format), and the pages it links to
+    that this site doesn't have sent on (the flasher to the installer, the docs to the repository's)"""
+    page = os.path.join(site, "codeplug", "index.html")
+    if not os.path.isfile(page):
+        sys.exit("installer_build: %s has no codeplug page: build the site first (site/build.py --out %s)" % (site, site))
+    dst = os.path.join(out, EDITOR)
+    with open(page, encoding="utf-8") as f:
+        html = editor_page(f.read(), repo_url)
+    os.makedirs(os.path.join(dst, "codeplug"))
+    with open(os.path.join(dst, "codeplug", "index.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+    for d in ("js", "css", "vendor"):
+        shutil.copytree(os.path.join(site, "static", d), os.path.join(dst, "static", d))
+    os.makedirs(os.path.join(dst, "static", "img"))
+    for n in EDITOR_IMG:
+        shutil.copy2(os.path.join(site, "static", "img", n), os.path.join(dst, "static", "img", n))
+    os.makedirs(os.path.join(dst, "data"))
+    for n in ("radios.json", "releases.json"):
+        shutil.copy2(os.path.join(site, "data", n), os.path.join(dst, "data", n))
+    # The site's settings, pointed here: no error reporting address, this repository for help
+    with open(os.path.join(site, "data", "site.json"), encoding="utf-8") as f:
+        info = json.load(f)
+    info.pop("reports", None)
+    info.update(repo=repo_url, community=repo_url + "/issues", languages=[l for l in info.get("languages", []) if l.get("code") == "en"])
+    with open(os.path.join(dst, "data", "site.json"), "w", encoding="utf-8") as f:
+        json.dump(info, f, indent=1)
+    redirect(os.path.join(dst, "index.html"), "codeplug/")
+    redirect(os.path.join(dst, "flash", "index.html"), "../../index.html")
+    redirect(os.path.join(dst, "docs", "index.html"), repo_url + "/tree/main/docs/user")
+    return dst
+
+
 def radios():
     """The radios with the Baofeng serial updater: [{id, name, keys, sign}], from the board registry"""
     sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -89,7 +164,7 @@ def release_files(fwdir, boards):
     return out
 
 
-def build(out, fwdir=None, commit=None, repo_url=REPO_URL):
+def build(out, fwdir=None, commit=None, repo_url=REPO_URL, editor=None):
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(os.path.join(out, "data"))
@@ -126,8 +201,11 @@ def build(out, fwdir=None, commit=None, repo_url=REPO_URL):
     with open(os.path.join(out, "data", "site.json"), "w", encoding="utf-8") as f:
         json.dump({"commit": commit[:8]}, f)
     open(os.path.join(out, ".nojekyll"), "w").close()	# GitHub Pages: serve every file as it is
-    print("installer: %s, %d modules, %d radios, release %s" % (
-        out, len(mods), len(rs), "%s for %s" % (info["version"], ", ".join(sorted(rel))) if rel else "none"))
+    if editor:
+        add_editor(editor, out, repo_url)
+    print("installer: %s, %d modules, %d radios, release %s%s" % (
+        out, len(mods), len(rs), "%s for %s" % (info["version"], ", ".join(sorted(rel))) if rel else "none",
+        ", codeplug editor" if editor else ""))
     return mods, rel
 
 
@@ -169,6 +247,31 @@ def self_test():
         assert [r["id"] for r in json.load(open(os.path.join(out, "data", "radios.json")))] == loaders
         build(out, None, commit="abcdef12")
         assert not os.path.exists(os.path.join(out, "data", "release.json"))
+        # the editor from a site build: open32plus's header and footer, its own data, no error reporting address
+        site = os.path.join(d, "site")
+        for sub in ("codeplug", "data", "static/js/editor", "static/css", "static/vendor", "static/img"):
+            os.makedirs(os.path.join(site, sub), exist_ok=True)
+        with open(os.path.join(site, "codeplug", "index.html"), "w") as f:
+            f.write('<title>Codeplug · RadioFoundry</title><link rel="alternate" hreflang="es" href="../es/codeplug/">'
+                    '<header class="site-header"><nav>Flash Docs</nav></header><main>RadioFoundry editor</main>'
+                    '<footer class="site-footer">community</footer>')
+        for n in EDITOR_IMG:
+            open(os.path.join(site, "static", "img", n), "w").close()
+        open(os.path.join(site, "static", "js", "editor", "app.js"), "w").close()
+        for n, v in (("radios.json", {"radios": []}), ("releases.json", {"releases": []}),
+                     ("site.json", {"repo": "x", "reports": {"sentry_dsn": "y"}, "languages": [{"code": "en"}, {"code": "es"}]})):
+            with open(os.path.join(site, "data", n), "w") as f:
+                json.dump(v, f)
+        build(out, None, commit="abcdef12", editor=site)
+        page = open(os.path.join(out, EDITOR, "codeplug", "index.html")).read()
+        assert "open32<b>plus</b>" in page and "Channels &amp; zones" in page and "Flash Docs" not in page, page
+        assert "community" not in page and 'rel="alternate"' not in page and "open32plus editor" in page, page
+        assert "based on <a href" in page and "Codeplug · open32plus" in page, page
+        info = json.load(open(os.path.join(out, EDITOR, "data", "site.json")))
+        assert "reports" not in info and info["repo"] == REPO_URL and [l["code"] for l in info["languages"]] == ["en"], info
+        for p_ in ("static/js/editor/app.js", "data/radios.json", "index.html", "flash/index.html", "docs/index.html"):
+            assert os.path.isfile(os.path.join(out, EDITOR, p_)), p_
+        assert os.path.isfile(os.path.join(out, "data", "radios.json")), "the installer's own data stays"
     print("installer_build: self-test ok")
 
 
@@ -178,11 +281,12 @@ def main():
     ap.add_argument("--firmware", help="a folder with a release's assets (rfoundry-<board>-<version>.bin and .json)")
     ap.add_argument("--commit", help="the commit the page is built from (default: HEAD)")
     ap.add_argument("--repo-url", default=REPO_URL)
+    ap.add_argument("--editor", help="a built site (site/build.py --out DIR): adds its codeplug editor under editor/")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
         return self_test()
-    build(a.out, a.firmware, a.commit, a.repo_url)
+    build(a.out, a.firmware, a.commit, a.repo_url, a.editor)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,9 @@ they are ([FORKING.md](FORKING.md)). Files we change get our copyright line belo
 
 Open the installer in Chrome or Edge on a computer: **https://jnubbz.github.io/open32plus/**. It installs the newest
 release over the programming cable and keeps DMR voice working with the codec from Baofeng's own firmware file
-([installer/README.md](installer/README.md)).
+([installer/README.md](installer/README.md)). Its **Channels & zones** page,
+**https://jnubbz.github.io/open32plus/editor/codeplug/**, edits channels, zones, contacts and talkgroups on the radio
+over the same cable.
 
 ## What open32plus adds
 
