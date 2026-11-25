@@ -1838,6 +1838,11 @@ msgid "Decode CW"
 msgstr "Decodifica CW"
 
 #: core/ui/ui_menus.c
+msgctxt "CWDEC_HINT_QSO"
+msgid "OK reply  # clear"
+msgstr "OK rispondi  # cancella"
+
+#: core/ui/ui_menus.c
 msgctxt "CWDEC_HINT"
 msgid "# clear  Back"
 msgstr "# cancella  Indietro"
@@ -2286,6 +2291,31 @@ msgstr "{Indietro canc.  # ABC/123/abc  OK tieni|Indietro canc  # modo  OK}"
 msgctxt "TEXT_HINT_SEND"
 msgid "{Back delete  # ABC/123/abc  OK send|Back del  # mode  OK}"
 msgstr "{Indietro canc.  # ABC/123/abc  OK invia|Indietro canc  # modo  OK}"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_ROW_ENTER_CALL"
+msgid "Enter call"
+msgstr "Inserisci nominativo"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_WHY_NOT_A_CALL"
+msgid "Not a callsign"
+msgstr "Non è un nominativo"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_TITLE_REPLY"
+msgid "Reply to"
+msgstr "Rispondi a"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_HINT_CALLS"
+msgid "OK pick  Back"
+msgstr "OK scegli  Indietro"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_TITLE"
+msgid "QSO"
+msgstr "QSO"
 
 #: core/ui/ui_menus.c
 msgctxt "CHAN_ROW_NEW_FROM_CURRENT"

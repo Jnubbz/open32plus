@@ -1087,6 +1087,24 @@ static const flow_t flows[] = {
 	  false },
 	{ "C # clears the decoded text", "ok 2 up ok", "ctx", "screen=cw-decode shows=Hearing", 1, false },
 	{ "C Back from Decode CW returns to Messages", "ok 2 up ok", "back", "screen=messages", 1, false },
+#if CONFIG_CW_QSO
+	// The QSO helper (morse.md 9): OK lists the calls heard, W1AW (heard 3 times) before KN0BLE; our own N0CALL never
+	{ "C Decode CW OK lists the calls heard", "ok 2 up ok", "ok",
+	  "screen=qso-calls shows=W1AW shows=3x shows=KN0BLE shows=Enter_call", 1, false },
+	{ "C a call opens the exchange with it filled in", "ok 2 up ok ok", "ok",
+	  "screen=qso shows=W1AW shows=W1AW_DE_N0CALL", 1, false },
+	{ "C an exchange line sends as CW", "ok 2 up ok ok ok", "down ok",
+	  "screen=cw-send sent=1 text=W1AW_DE_N0CALL_UR_599_599_BK", 2, false },
+	{ "C Back from a sent line returns to the exchange", "ok 2 up ok ok ok ok", "back", "screen=qso", 1, false },
+	// The exchange took the list's place: Back goes to Decode CW, where OK makes a fresh list
+	{ "C Back from the exchange returns to Decode CW", "ok 2 up ok ok ok", "back", "screen=cw-decode", 1, false },
+	{ "C Enter call opens the callsign editor", "ok 2 up ok ok", "down down ok", "screen=qso-call", 3, false },
+	// K (5 twice), # to 123, 1, # back to ABC (capitals only), A (2), OK
+	{ "C an entered call opens its exchange", "ok 2 up ok ok down down ok", "5 5 ctx 1 ctx 2 ok",
+	  "screen=qso shows=K1A_DE_N0CALL", 7, false },
+	{ "C an entry that isn't a call stays on the calls", "ok 2 up ok ok down down ok", "2 ok",
+	  "screen=qso-calls", 2, false },
+#endif
 #endif
 	{ "C Send CW opens the CW composer", "ok 2", TO_SEND_CW " ok", "screen=cw-compose shows=QRZ?_DE_N0CALL_K", 1 + SEND_CW_UPS, false },
 	{ "C a canned CW message sends", "ok 2 " TO_SEND_CW " ok", "ok",

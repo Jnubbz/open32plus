@@ -1840,6 +1840,11 @@ msgid "Decode CW"
 msgstr "解码 CW"
 
 #: core/ui/ui_menus.c
+msgctxt "CWDEC_HINT_QSO"
+msgid "OK reply  # clear"
+msgstr "OK 回复  # 清除"
+
+#: core/ui/ui_menus.c
 msgctxt "CWDEC_HINT"
 msgid "# clear  Back"
 msgstr "# 清除  返回"
@@ -2288,6 +2293,31 @@ msgstr "{返回 删除  # ABC/123/abc  OK 保留|返回 删  # 模式  OK}"
 msgctxt "TEXT_HINT_SEND"
 msgid "{Back delete  # ABC/123/abc  OK send|Back del  # mode  OK}"
 msgstr "{返回 删除  # ABC/123/abc  OK 发送|返回 删  # 模式  OK}"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_ROW_ENTER_CALL"
+msgid "Enter call"
+msgstr "输入呼号"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_WHY_NOT_A_CALL"
+msgid "Not a callsign"
+msgstr "不是呼号"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_TITLE_REPLY"
+msgid "Reply to"
+msgstr "回复"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_HINT_CALLS"
+msgid "OK pick  Back"
+msgstr "OK 选择  返回"
+
+#: core/ui/ui_menus.c
+msgctxt "QSO_TITLE"
+msgid "QSO"
+msgstr "QSO"
 
 #: core/ui/ui_menus.c
 msgctxt "CHAN_ROW_NEW_FROM_CURRENT"

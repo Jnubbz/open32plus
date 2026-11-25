@@ -53,6 +53,11 @@ typedef enum {
 #if CONFIG_CW_DECODE
 	SCR_CW_DECODE,			// Morse decoded from the FM channel while it is open (morse.md 7; on with APRS_RX)
 #endif
+#if CONFIG_CW_QSO
+	SCR_QSO_CALLS,			// Decode CW > OK: the callsigns heard, then Enter call (morse.md 9)
+	SCR_QSO_CALL,			// ... the callsign editor: a doubtful call finished, or one entered
+	SCR_QSO,			// the exchange with the call picked: lines sent as CW messages
+#endif
 #if CONFIG_BACKLIGHT_TEST
 	SCR_BL_TEST,			// Settings > Advanced > Backlight tests
 #endif

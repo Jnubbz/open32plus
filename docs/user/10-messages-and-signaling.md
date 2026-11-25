@@ -157,6 +157,22 @@ after are whole. Battery saving is off while the screen is open, so the first le
 
 <img src="../ux/screens/160x120i5/cw_decode.png" width="200" alt="Messages > Decode CW">
 
+### Replying to a station
+
+On **Decode CW**, press **OK** to answer a station you heard:
+
+1. **Reply to** lists up to five callsigns from the decoded text: calls heard more than once first, then the newest.
+   "3x" means the call came through three times. Your own call isn't listed.
+2. Pick the station's call. A call shown in warning color has a letter the decoder couldn't read (`*`): picking it
+   opens the callsign editor so you can fix it. **Enter call** types one in when the right call isn't listed.
+3. The exchange lines appear with the call filled in, for example `W1AW DE KN0BLE UR 599 599 BK`. Press **OK** on a
+   line to send it. **Back** after it returns to the lines, for the next one.
+4. **Back** from the lines returns to **Decode CW**. **OK** there gives a fresh list.
+
+The lines are fixed for now: a call, a 599 report, a request to repeat, and a sign-off. They need your callsign in the
+radio name, like CW messages. The decoder keeps listening the whole time, so the other station's answer is there when
+you come back. The details are in [morse.md](../spec/morse.md) 9.
+
 ## Message formats
 
 **Settings > Connections > Message format** picks the encoding of new DMR messages. The setting does not affect

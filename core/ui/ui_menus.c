@@ -28,6 +28,9 @@
 #include "radio/ref_trim.h"
 #include "radio/radio_am.h"
 #include "radio/radio_bands.h"
+#if CONFIG_CW_QSO
+#include "radio/cw_qso.h"
+#endif
 #include "input/keyassign.h"
 #if CONFIG_HOTSPOT || CONFIG_USB_NETWORK
 #include "hostlink/hostlink.h"
@@ -544,8 +547,13 @@ static void cw_send(const char *text)
 			 TR(MSG_TOAST_SEND_FAILED, "Couldn't send: try again"));
 		return;
 	}
-	// Over the CW list, so Back from cw-send goes back to it to send another (the editor has already closed)
-	while (ui_depth() > 0 && ui_frame()->scr != SCR_CW_COMPOSE)
+	// Over the CW list or the QSO exchange, so Back from cw-send goes back to it to send another (the editor has
+	// already closed)
+	while (ui_depth() > 0 && ui_frame()->scr != SCR_CW_COMPOSE
+#if CONFIG_CW_QSO
+	       && ui_frame()->scr != SCR_QSO
+#endif
+	       )
 		ui_pop();
 	ui_push(SCR_CW_SEND, 0);
 }
@@ -705,9 +713,23 @@ static bool cw_decode_key(const input_event_t *ev)
 static void cw_decode_enter(void) { ui_svc_cw_decode(true); }
 static void cw_decode_leave(void) { ui_svc_cw_decode(false); }
 
+#if CONFIG_CW_QSO
+// OK: reply to a station heard (morse.md 9). The decoder runs on under the QSO screens: it closes with this one
+static void cw_decode_select(uint16_t i, bool hold)
+{
+	(void)i;
+	(void)hold;
+	ui_push(SCR_QSO_CALLS, 0);
+}
+#endif
+
 static const ui_scr_def_t cw_decode_screen = {
 	.name = "cw-decode", .flags = SF_LIST | SF_FIELD, .prefix = TRN(CWDEC_TITLE, "Decode CW"),
+#if CONFIG_CW_QSO
+	.hint = TRN(CWDEC_HINT_QSO, "OK reply  # clear"), .select = cw_decode_select,
+#else
 	.hint = TRN(CWDEC_HINT, "# clear  Back"),
+#endif
 	.count = cw_decode_count, .item = cw_decode_item, .body = cw_decode_body, .key = cw_decode_key,
 	.enter = cw_decode_enter, .leave = cw_decode_leave,
 };
@@ -2367,6 +2389,10 @@ static void text_open(char *target, uint8_t max, uint8_t screen)
 #endif
 	text_prefix = screen == SCR_MESSAGE_TEXT ? TEXT_MESSAGE :
 		screen == SCR_APRS_TO ? TEXT_CALLSIGN : TEXT_NAME;
+#if CONFIG_CW_QSO
+	if (screen == SCR_QSO_CALL)
+		text_prefix = TEXT_CALLSIGN;
+#endif
 #if CONFIG_SATELLITE_TLE
 	if (screen == SCR_SATELLITE_TEXT)
 		text_prefix = TEXT_SATELLITE;
@@ -2422,6 +2448,9 @@ static void text_enter(void)
 	text_mode = TEXT_UPPER;
 #if CONFIG_CW_SEND
 	text_upper_only = cw_writing;
+#if CONFIG_CW_QSO
+	text_upper_only = text_upper_only || ui_frame()->scr == SCR_QSO_CALL;	// a call for Morse: no case either
+#endif
 #else
 	text_upper_only = false;
 #endif
@@ -2637,6 +2666,146 @@ static const ui_scr_def_t aprs_to_screen = {
 #if CONFIG_DMR_SMS || CONFIG_APRS_AFSK || CONFIG_CW_SEND
 static const ui_scr_def_t message_text_screen = {
 	.name = "message-text", .flags = 0, .key = text_key_fn, .enter = text_enter, .draw = text_draw,
+};
+#endif
+
+#if CONFIG_CW_QSO
+// ======================= The CW QSO helper (docs/spec/morse.md 9) =======================
+// Decode CW > OK lists the callsigns heard (qso-calls): the most trusted and newest first, up to five, then Enter
+// call. A clean one opens the exchange (qso): fixed lines with the call in {THEM} and ours in {CALL}, sent as CW
+// messages from there and nowhere else, so one more press stands between a misread call and the air. A doubtful one
+// (a '*' the decoder couldn't read) and Enter call open the callsign editor first. The lines are what goes on air:
+// Morse, never translated
+
+static const char *const qso_lines[] = { "{THEM} DE {CALL} {CALL} K", "{THEM} DE {CALL} UR 599 599 BK",
+	"{THEM} AGN? K", "{THEM} TU 73 DE {CALL} EE" };
+#define QSO_LINES_N	(sizeof qso_lines / sizeof qso_lines[0])
+static cw_qso_call_t qso_calls[CW_QSO_CALLS];
+static uint8_t qso_ncalls;
+static char qso_them[CW_QSO_CALL_MAX + 1];	// the call the exchange is with
+
+// The calls as they were when the list opened: the list doesn't move under the user while the decoder runs on
+static void qso_calls_enter(void)
+{
+	static char text[UI_CWDEC_TEXT_MAX];
+	char own[CW_QSO_CALL_MAX + 1];
+	ui_cwdec_t c;
+	ui_svc_cw_decode_get(&c, text, sizeof text);
+	if (ui_svc_cw_expand("{CALL}", own, sizeof own) == 0)
+		own[0] = 0;
+	qso_ncalls = cw_qso_calls(text, own, qso_calls);
+}
+
+static uint16_t qso_calls_count(void) { return (uint16_t)(qso_ncalls + 1u); }
+
+static void qso_calls_item(uint16_t i, ui_item_t *it)
+{
+	if (i == qso_ncalls) {
+		str_copy(it->label, sizeof it->label, TR(QSO_ROW_ENTER_CALL, "Enter call"));
+		return;
+	}
+	const cw_qso_call_t *c = &qso_calls[i];
+	str_copy(it->label, sizeof it->label, c->call);
+	if (c->heard > 1) {
+		sbuf_t b;
+		sb_init(&b, it->value, sizeof it->value);
+		sb_u32(&b, c->heard, 1);
+		sb_chr(&b, 'x');	// heard so many times
+	}
+	if (c->doubtful)
+		it->flags |= UI_ITEM_WARN;
+}
+
+// The exchange takes the call list's place: the list is a one-time pick (OK on Decode CW makes a fresh one), and the
+// stack stays shallow enough for cw-send on top (Home, Messages, Decode CW, the exchange, cw-send)
+static void qso_open(const char *call)
+{
+	str_copy(qso_them, sizeof qso_them, call);
+	if (ui_depth() > 0 && ui_frame()->scr == SCR_QSO_CALLS)
+		ui_pop();
+	ui_push(SCR_QSO, 0);
+}
+
+static char qso_edit[CW_QSO_CALL_MAX + 1];
+
+// The callsign editor kept: a call shape with nothing left to guess opens the exchange
+static void qso_call_kept(void)
+{
+	bool doubtful;
+	if (!cw_qso_is_call(qso_edit, strlen(qso_edit), &doubtful) || doubtful) {
+		ui_toast(TR(QSO_WHY_NOT_A_CALL, "Not a callsign"));
+		return;
+	}
+	qso_open(qso_edit);
+}
+
+static void qso_calls_select(uint16_t i, bool hold)
+{
+	(void)hold;
+	if (i < qso_ncalls && !qso_calls[i].doubtful) {
+		qso_open(qso_calls[i].call);
+		return;
+	}
+	// Enter call, or a doubtful one to finish: the editor, the '*' left for the user to replace
+	str_copy(qso_edit, sizeof qso_edit, i < qso_ncalls ? qso_calls[i].call : "");
+	text_open(qso_edit, CW_QSO_CALL_MAX, SCR_QSO_CALL);
+	text_done = qso_call_kept;
+}
+
+static const ui_scr_def_t qso_calls_screen = {
+	.name = "qso-calls", .flags = SF_LIST | SF_FIELD, .prefix = TRN(QSO_TITLE_REPLY, "Reply to"),
+	.hint = TRN(QSO_HINT_CALLS, "OK pick  Back"),
+	.count = qso_calls_count, .item = qso_calls_item, .select = qso_calls_select, .enter = qso_calls_enter,
+};
+
+static const ui_scr_def_t qso_call_screen = {
+	.name = "qso-call", .flags = 0, .key = text_key_fn, .enter = text_enter, .draw = text_draw,
+};
+
+// The exchange with qso_them: each line with the calls filled in; OK sends it as a CW message
+static uint16_t qso_count(void) { return QSO_LINES_N; }
+
+static uint8_t qso_line(uint16_t i, char *out, uint8_t cap)
+{
+	char t[48];
+	if (cw_qso_fill(qso_lines[i], qso_them, t, sizeof t) == 0)
+		return 0;
+	return ui_svc_cw_expand(t, out, cap);
+}
+
+static void qso_item(uint16_t i, ui_item_t *it)
+{
+	char text[48];
+	sbuf_t b;
+	sb_init(&b, it->label, sizeof it->label);
+	it->flags |= UI_ITEM_PREVIEW;
+	sb_chr(&b, '"');
+	if (qso_line(i, text, sizeof text) != 0) {
+		sb_str(&b, text);
+	} else {
+		sb_str(&b, qso_lines[i]);	// no callsign in the radio name: the template, dimmed
+		it->flags |= UI_ITEM_DIM;
+	}
+	sb_chr(&b, '"');
+}
+
+static void qso_select(uint16_t i, bool hold)
+{
+	(void)hold;
+	char text[48];
+	if (qso_line(i, text, sizeof text) == 0) {
+		ui_toast(TR(CW_WHY_NO_CALLSIGN, "No callsign: set the radio name to it"));
+		return;
+	}
+	cw_send(text);
+}
+
+static const char *qso_title(void) { return qso_them; }
+
+static const ui_scr_def_t qso_screen = {
+	.name = "qso", .flags = SF_LIST | SF_FIELD, .prefix = TRN(QSO_TITLE, "QSO"),
+	.hint = TRN(MSG_HINT_COMPOSE, "OK send  Back"),
+	.count = qso_count, .item = qso_item, .select = qso_select, .title = qso_title,
 };
 #endif
 
@@ -8473,6 +8642,9 @@ const ui_scr_def_t *const ui_scr[SCR_COUNT] = {
 #endif
 #if CONFIG_CW_DECODE
 	[SCR_CW_DECODE] = &cw_decode_screen,
+#endif
+#if CONFIG_CW_QSO
+	[SCR_QSO_CALLS] = &qso_calls_screen, [SCR_QSO_CALL] = &qso_call_screen, [SCR_QSO] = &qso_screen,
 #endif
 	[SCR_MESSAGE_READ] = &message_read_screen,
 	[SCR_RECENT] = &recent_screen, [SCR_ZONES] = &channels_screen, [SCR_ZONE] = &zone_screen,
