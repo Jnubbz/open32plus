@@ -112,6 +112,9 @@ static inline uint32_t input_inj_scan(input_inj_state_t *s, uint32_t now)
 }
 
 void input_engine_init(input_engine_t *e, const keymap_entry_t *keymap, uint8_t keymap_len, uint32_t now_ms);
+// The keys whose press counts on its first scan, not after two agreeing ones: a straight key and the paddles
+// (ACT_CW_KEY, ACT_CW_DIT, ACT_CW_DAH; morse.md 8.2)
+uint32_t input_engine_fast_mask(const input_engine_t *e);
 // One scan: raw key mask and encoder detents since the last call
 // Gesture timing in ms (0 = the defaults); keys held now keep their LONG / REPEAT state
 void input_engine_set_timing(input_engine_t *e, uint16_t long_ms, uint16_t repeat_ms);

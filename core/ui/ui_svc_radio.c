@@ -224,6 +224,7 @@ uint32_t ui_svc_feat_radio(void)
 	       (knob ? UI_FEAT_VOLUME_KNOB : 0) |
 	       (radio_bcast_capable() ? UI_FEAT_BCAST : 0) | (CONFIG_POSITION && board_has_gps() ? UI_FEAT_GPS : 0) |
 	       (ref_trim_available() ? UI_FEAT_REF_TRIM : 0) |
+	       (radio_cw_sidetone_capable() ? UI_FEAT_CW_SIDETONE : 0) |
 #if CONFIG_P25
 	       (radio_p25_fits() ? UI_FEAT_P25 : 0) |
 #endif

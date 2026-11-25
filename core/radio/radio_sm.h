@@ -454,6 +454,7 @@ typedef struct {
 	// A straight key (morse.md 8): a CW message (cw_msg set too) keyed from the side key's edges, not from text
 	bool cw_hand;
 	cw_hand_t hand;
+	uint16_t cw_key_dropped;	// hand-keyed edges the timed tone's queue had no room for (debug link cw.key_drop)
 	uint16_t hand_lead_ms, hand_hang_ms;
 #if CONFIG_CW_PADDLES
 	// ... the bug's paddles making that key (morse.md 10)

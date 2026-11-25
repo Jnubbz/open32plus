@@ -18,6 +18,9 @@ MAXIMAL_VARS := LTO=1
 # default, so that the maximal build keeps satellite tracking and still fits the app region; Chinese stays out too
 # (its glyph table does not fit beside the rest)
 MAXIMAL_SKIP := NET_PPP APRS_IGATE LANG_FR LANG_IT LANG_DEFAULT_IT LANG_ZH LANG_DEFAULT_ZH
+# The status server's files stored uncompressed take about 19 KB more (docs/build-config.md): with everything else on,
+# the image doesn't fit the 720 KB app region without CONFIG_NET_HTTP_GZIP (2.4 KB over on 2026-11-25)
+BOARD_REQUIRED := NET_HTTP_GZIP
 
 # What the radio's hardware can't do, one switch per line with the reason (tools/boards.py checks there is one;
 # docs/build-config.md, "Unsupported, not written, unconfirmed"): ci's maximal configuration leaves these off

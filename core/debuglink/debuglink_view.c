@@ -409,6 +409,9 @@ static void link_section(dl_text_t *t)
 		(unsigned)input_injected_keys());
 	dl_text(t, "input.encoder_total=%d\n", (int)input_encoder_total());
 	dl_text(t, "input.switch_pos=%d\n", (int)input_switch_pos());
+	uint32_t scan_max, scan_slow;
+	input_scan_stats(&scan_max, &scan_slow);
+	dl_text(t, "input.scan_max_ms=%u\ninput.scan_slow=%u\n", (unsigned)scan_max, (unsigned)scan_slow);
 	hal_encoder_stats_t es;
 	uint32_t deferred;
 	bool stats = input_encoder_stats(&es, &deferred);
@@ -585,6 +588,9 @@ static void cw_section(const radio_view_t *v, dl_text_t *t)
 		c.last < sizeof(results) / sizeof(results[0]) ? results[c.last] : "?", c.serial);
 	dl_text(t, "cw.requests=%u\ncw.sent=%u\ncw.cut=%u\ncw.refused=%u\ncw.last_ms=%u\n", c.requests, c.sent, c.cut,
 		c.refused, (unsigned)c.last_ms);
+	// Hand keying's timing (morse.md 8.2, 10.3): both stay 0
+	dl_text(t, "cw.key_late=%u\ncw.key_drop=%u\ncw.side_hw=%u\ncw.sidetone=%u\n", v->cw_key_late, v->cw_key_drop,
+		radio_cw_sidetone_capable(), (SETTINGS_FIELD(cw_flags) & SETTINGS_CW_SIDETONE_OFF) == 0);
 	// The settings as stored (0 = the default: 20 wpm, standard spacing, 800 Hz); one field at a time, no copy on the stack
 	dl_text(t, "cw.wpm=%u\ncw.eff_wpm=%u\ncw.tone_hz=%u\ncw.lead=%u\ncw.hang=%u\ncw.key_delay=%u\n", SETTINGS_FIELD(cw_wpm),
 		SETTINGS_FIELD(cw_eff_wpm), SETTINGS_FIELD(cw_tone_hz), SETTINGS_FIELD(cw_lead), SETTINGS_FIELD(cw_hang),

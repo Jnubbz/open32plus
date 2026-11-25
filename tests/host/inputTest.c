@@ -181,6 +181,44 @@ static void test_raw_edges(void)
 	CHECK(nev == 2 && evs[1].action == ACT_PTT && evs[1].gesture == GESTURE_UP);
 }
 
+// A CW key's press on its first scan, its release after two agreeing ones (input_engine_fast_mask, morse.md 8.2): a
+// bounce while it closes can't end it; a one-scan glitch on another raw-edge key (PTT) is still ignored
+static void test_cw_fast_press(void)
+{
+	static const keymap_entry_t cw[] = {
+		{ 0, ACT_CW_DIT, ACT_CW_DIT, true, false, 0 },
+		{ 1, ACT_CW_KEY, ACT_CW_KEY, true, false, 0 },
+		{ 2, ACT_PTT, ACT_PTT, true, false, 0 },
+	};
+	nev = 0;
+	now = 5000;
+	keys = 0;
+	input_engine_init(&e, cw, 3, now);
+	run(INPUT_SCAN_MS, 0);
+	CHECK(input_engine_fast_mask(&e) == 0x3u);
+	keys = 1u << 0;
+	run(INPUT_SCAN_MS, 0);			// one scan: down already
+	CHECK(nev == 1 && evs[0].action == ACT_CW_DIT && evs[0].gesture == GESTURE_DOWN && evs[0].value == 0);
+	keys = 0;				// a bounce: one open scan, then closed again
+	run(INPUT_SCAN_MS, 0);
+	keys = 1u << 0;
+	run(30, 0);
+	CHECK(nev == 1);
+	keys = 0;				// the release: two agreeing scans
+	run(INPUT_SCAN_MS, 0);
+	CHECK(nev == 1);
+	run(INPUT_SCAN_MS, 0);
+	CHECK(nev == 2 && evs[1].gesture == GESTURE_UP);
+	keys = 1u << 1;				// the straight key too
+	run(INPUT_SCAN_MS, 0);
+	CHECK(nev == 3 && evs[2].action == ACT_CW_KEY && evs[2].gesture == GESTURE_DOWN);
+	keys = 1u << 2;				// PTT: a one-scan glitch is nothing
+	run(INPUT_SCAN_MS, 0);
+	keys = 0;
+	run(50, 0);
+	CHECK(count(ACT_PTT, GESTURE_DOWN) == 0);
+}
+
 static void test_chord(void)
 {
 	reset(0);
@@ -352,6 +390,7 @@ int main(void)
 	test_repeat();
 	test_timing();
 	test_raw_edges();
+	test_cw_fast_press();
 	test_chord();
 	test_held_at_start();
 	test_encoder_idle();

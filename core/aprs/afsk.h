@@ -37,16 +37,35 @@ size_t afsk_mod(afsk_mod_t *m, const uint8_t *tones, uint32_t nbits, int16_t amp
 
 // A keyed tone (CW messages through hal_afsk_t.tone_start): a sine at hz whose envelope rises and falls over ramp
 // samples (raised cosine) at each key edge, so the keying has no clicks. Silent while up. afsk_tone_key may be called
-// from another context than afsk_tone (one flag)
+// from another context than afsk_tone (one flag).
+//
+// afsk_tone_key_at keys at a time instead (docs/spec/morse.md 8.2): each edge plays at the sample its time maps to, a
+// fixed latency after it, so an element keeps its length to the sample whenever the caller gets to it. The first
+// edge after afsk_tone_init sets the mapping. The edges travel to afsk_tone through a single producer, single
+// consumer queue: one caller context, afsk_tone in another
+#define AFSK_TONE_EDGES	16u	// a power of two
+
 typedef struct {
 	uint32_t phase, step;	// oscillator, 2^32 = one turn
 	uint16_t ramp, pos;	// envelope: pos 0 silent .. ramp full
 	int16_t amp;
 	volatile bool down;
+	uint32_t rate;
+	uint32_t clock;		// samples made (afsk_tone's side)
+	uint32_t at[AFSK_TONE_EDGES];	// the sample each queued edge plays at
+	uint16_t at_down;	// bit i: queued edge i is a press
+	uint8_t q_head, q_tail;	// afsk_tone takes at q_head, afsk_tone_key_at adds at q_tail
+	bool synced;
+	uint32_t sync_sample, sync_ms;	// the mapping: sync_ms plays at sync_sample
+	uint16_t resyncs;	// edges that arrived too late for the mapping and set it again
 } afsk_tone_t;
 
 void afsk_tone_init(afsk_tone_t *t, uint32_t rate, uint16_t hz, int16_t amp, uint16_t ramp);
 void afsk_tone_key(afsk_tone_t *t, bool down);
+// The key went down or up at ms (the caller's millisecond clock, now_ms on it now): play it lat_ms after ms. An edge
+// too late for that (or one so early the clocks drifted apart) sets the mapping again at that edge. False when the
+// queue is full: the edge is dropped
+bool afsk_tone_key_at(afsk_tone_t *t, bool down, uint32_t ms, uint32_t now_ms, uint32_t lat_ms);
 // n samples of the tone as keyed now
 void afsk_tone(afsk_tone_t *t, int16_t *out, size_t n);
 

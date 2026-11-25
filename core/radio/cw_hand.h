@@ -30,5 +30,9 @@ bool cw_hand_edge(cw_hand_t *h, bool down, uint32_t ms);
 // The key on the air at now_ms: the edges older than lead_ms played. *done once the air key has been up hang_ms with
 // nothing queued and the side key up
 bool cw_hand_poll(cw_hand_t *h, uint32_t now_ms, uint32_t lead_ms, uint32_t hang_ms, bool *done);
+// The oldest edge due at now_ms (older than lead_ms), taken off the queue: *down and when it plays (its time plus
+// lead_ms) in *at_ms, for a tone keyed at a time (hal_afsk_t.tone_key_at). False when none is due. cw_hand_poll after
+// it plays nothing more and reports done
+bool cw_hand_next(cw_hand_t *h, uint32_t now_ms, uint32_t lead_ms, bool *down, uint32_t *at_ms);
 
 #endif

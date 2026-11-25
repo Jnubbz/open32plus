@@ -60,6 +60,12 @@ void afsk_tone_init(afsk_tone_t *t, uint32_t rate, uint16_t hz, int16_t amp, uin
 	t->pos = 0;
 	t->amp = amp;
 	t->down = false;
+	t->rate = rate;
+	t->clock = 0;
+	t->at_down = 0;
+	t->q_head = t->q_tail = 0;
+	t->synced = false;
+	t->resyncs = 0;
 }
 
 void afsk_tone_key(afsk_tone_t *t, bool down)
@@ -67,10 +73,63 @@ void afsk_tone_key(afsk_tone_t *t, bool down)
 	t->down = down;
 }
 
+// ms of the caller's clock as a sample count (signed: a difference)
+static int32_t ms_samples(const afsk_tone_t *t, int32_t ms)
+{
+	return (int32_t)(((int64_t)ms * (int64_t)t->rate) / 1000);
+}
+
+bool afsk_tone_key_at(afsk_tone_t *t, bool down, uint32_t ms, uint32_t now_ms, uint32_t lat_ms)
+{
+	uint8_t head = __atomic_load_n(&t->q_head, __ATOMIC_ACQUIRE);
+	uint8_t tail = t->q_tail;
+	if ((uint8_t)(tail - head) >= AFSK_TONE_EDGES) {
+		return false;
+	}
+	uint32_t clock = __atomic_load_n(&t->clock, __ATOMIC_ACQUIRE);
+	// Where ms plays if the mapping were set now: lat_ms after it, less the time the edge took to get here
+	int32_t age = (int32_t)(now_ms - ms);
+	uint32_t fresh = clock + (uint32_t)ms_samples(t, (int32_t)lat_ms - age);
+	uint32_t at = fresh;
+	if (t->synced) {
+		at = t->sync_sample + (uint32_t)ms_samples(t, (int32_t)(ms - t->sync_ms));
+		// Late (it would play in the past), or early by the latency and 20 ms more (the clocks drifted apart: the
+		// caller's lateness alone moves fresh by less)
+		bool late = (int32_t)(at - clock) < 0;
+		bool early = (int32_t)(at - fresh) > ms_samples(t, (int32_t)lat_ms + 20);
+		if (late || early) {
+			at = fresh;
+			t->synced = false;
+			t->resyncs++;
+		}
+	}
+	if (!t->synced) {
+		if ((int32_t)(at - clock) < 0) {
+			at = clock;	// older than the latency: as soon as it can
+		}
+		t->sync_sample = at;
+		t->sync_ms = ms;
+		t->synced = true;
+	}
+	uint8_t i = tail & (AFSK_TONE_EDGES - 1u);
+	t->at[i] = at;
+	uint16_t bit = (uint16_t)(1u << i);
+	t->at_down = (uint16_t)(down ? (t->at_down | bit) : (t->at_down & ~bit));
+	__atomic_store_n(&t->q_tail, (uint8_t)(tail + 1u), __ATOMIC_RELEASE);
+	return true;
+}
+
 void afsk_tone(afsk_tone_t *t, int16_t *out, size_t n)
 {
 	bool down = t->down;
-	for (size_t i = 0; i < n; i++) {
+	uint8_t head = t->q_head;
+	uint8_t tail = __atomic_load_n(&t->q_tail, __ATOMIC_ACQUIRE);
+	uint32_t clock = t->clock;
+	for (size_t i = 0; i < n; i++, clock++) {
+		while (head != tail && (int32_t)(clock - t->at[head & (AFSK_TONE_EDGES - 1u)]) >= 0) {
+			down = (t->at_down >> (head & (AFSK_TONE_EDGES - 1u))) & 1u;
+			head++;
+		}
 		if (down && t->pos < t->ramp) {
 			t->pos++;
 		} else if (!down && t->pos > 0) {
@@ -88,6 +147,9 @@ void afsk_tone(afsk_tone_t *t, int16_t *out, size_t n)
 		out[i] = (int16_t)((s * env) / 32767);
 		t->phase += t->step;
 	}
+	t->down = down;
+	__atomic_store_n(&t->clock, clock, __ATOMIC_RELEASE);
+	__atomic_store_n(&t->q_head, head, __ATOMIC_RELEASE);
 }
 
 // Hysteresis on the normalized difference, in 1/256 (13 = 0.05)

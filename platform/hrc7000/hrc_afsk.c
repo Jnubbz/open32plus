@@ -178,6 +178,23 @@ static void tone_key(bool down)
 {
 	afsk_tone_key(&tone, down);
 }
+
+// One producer (the radio task), one consumer (the timer interrupt): afsk_tone_key_at's queue needs no lock
+static bool tone_key_at(bool down, uint32_t ms, uint32_t now_ms, uint32_t lat_ms)
+{
+	return afsk_tone_key_at(&tone, down, ms, now_ms, lat_ms);
+}
+
+static bool side_on;
+
+static void tone_side(bool on)
+{
+	if (hooks == NULL || hooks->side == NULL || (on && !tone_mode) || on == side_on) {
+		return;
+	}
+	side_on = on;
+	hooks->side(on);
+}
 #endif
 
 static bool tx_busy(void)
@@ -194,6 +211,9 @@ static void tx_stop(void)
 	tone_mode = false;
 #endif
 	hrc_irq_restore(s);
+#if CONFIG_CW_SEND
+	tone_side(false);
+#endif
 	if (routed) {
 		route(false);
 	}
@@ -230,6 +250,8 @@ const hal_afsk_t hrc_afsk = {
 #if CONFIG_CW_SEND
 	.tone_start = tone_start,
 	.tone_key = tone_key,
+	.tone_key_at = tone_key_at,
+	.tone_side = tone_side,
 #endif
 #if CONFIG_APRS_RX && CONFIG_DMR
 	.rx_rate_hz = HRC7000_FM_RX_RATE,

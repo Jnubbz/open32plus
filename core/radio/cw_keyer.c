@@ -23,6 +23,9 @@ bool cw_keyer_edge(cw_keyer_t *k, bool dah, bool down, uint32_t ms)
 	k->t[i] = ms;
 	k->what[i] = (uint8_t)((down ? 1u : 0u) | (dah ? 2u : 0u));
 	k->n++;
+	if ((int32_t)(k->at - ms) > 0 && k->late != UINT16_MAX) {
+		k->late++;
+	}
 	return true;
 }
 

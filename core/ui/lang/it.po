@@ -4223,6 +4223,11 @@ msgid "Tone"
 msgstr "Tono"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_SIDETONE"
+msgid "Sidetone"
+msgstr "Tono locale"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_CW_LEAD_IN"
 msgid "Lead-in"
 msgstr "Ritardo iniziale"

@@ -4496,7 +4496,8 @@ static void test_cw_paddles(void)
 	paddle(false, false, now);
 	req(RREQ_ZONE_POS, 0);
 	run(100);
-	// Live (no delay): the first dit is on air 50 ms after the press, as the bug runs behind now
+	// Live (no delay): the first dit is on air CW_KEYER_SLACK_MS (20) after the press, on the next tick, as the keyer
+	// runs behind now
 	sd = settings_begin();
 	sd->cw_key_delay = 0;
 	settings_end(now);
@@ -4506,7 +4507,7 @@ static void test_cw_paddles(void)
 	run(30);
 	paddle(false, false, now);
 	run(200);
-	CHECK(tone.changes == 2 && tone.first_down_ms >= tb + 45 && tone.first_down_ms <= tb + 65);
+	CHECK(tone.changes == 2 && tone.first_down_ms >= tb + 20 && tone.first_down_ms <= tb + 35);
 	CHECK(tone.down_ms >= 55 && tone.down_ms <= 65);
 	run(1500);
 	CHECK(sm.view.state == RS_IDLE);
@@ -4524,7 +4525,7 @@ static void test_cw_paddles(void)
 	CHECK(sm.view.state == RS_IDLE);
 	// Swap paddles: the dah paddle (Back) makes dits
 	sd = settings_begin();
-	sd->cw_paddle_swap = 1;
+	sd->cw_flags = SETTINGS_CW_PADDLE_SWAP;
 	settings_end(now);
 	memset(&tone, 0, sizeof(tone));
 	paddle(true, true, now);
@@ -4535,10 +4536,103 @@ static void test_cw_paddles(void)
 	run(1500);
 	CHECK(sm.view.state == RS_IDLE);
 	sd = settings_begin();
-	sd->cw_paddle_swap = 0;
+	sd->cw_flags = 0;
 	settings_end(now);
 }
 #endif
+#endif
+
+#if CONFIG_CW_PADDLES
+// ---- Timed keying and the sidetone (morse.md 5.2, 8.2): on a board whose tone keys at a time, each hand-keyed edge
+// goes over with its own time and a fixed latency, so an element keeps its length however the ticks fall; the
+// sidetone comes on with the tone unless Settings > CW > Sidetone is off ----
+
+static struct {
+	int n;
+	bool down[32];
+	uint32_t at[32], lat[32];
+	int side_on, side_off;
+} timed;
+static bool a_tone_key_at(bool down, uint32_t ms, uint32_t now_ms, uint32_t lat_ms)
+{
+	(void)now_ms;
+	if (timed.n < 32) {
+		timed.down[timed.n] = down;
+		timed.at[timed.n] = ms;
+		timed.lat[timed.n] = lat_ms;
+		timed.n++;
+	}
+	return true;
+}
+static void a_tone_side(bool on) { if (on) timed.side_on++; else timed.side_off++; }
+
+static void test_cw_timed(void)
+{
+	setup_codeplug();
+	start();
+	run(50);
+	fake_afsk.tone_key_at = a_tone_key_at;
+	fake_afsk.tone_side = a_tone_side;
+	CHECK(radio_cw_sidetone_capable());
+	settings_t *sd = settings_begin();
+	sd->cw_key_delay = 0;
+	sd->cw_paddle = 0;	// iambic B
+	sd->cw_wpm = 18;	// 66 ms dots: off the 10 ms tick
+	sd->cw_flags = 0;
+	settings_end(now);
+	memset(&timed, 0, sizeof(timed));
+
+	// The straight key: each edge at its own time (3 ms off the tick), CW_HAND_LAT_MS (18) later; the sidetone on
+	uint32_t t0 = now + 3;
+	cw_key_edge(true, t0);
+	run(10);
+	cw_key_edge(false, t0 + 47);
+	run(60);
+	CHECK(timed.n == 2 && timed.down[0] && !timed.down[1]);
+	CHECK(timed.at[0] == t0 && timed.at[1] == t0 + 47 && timed.lat[0] == 18 && timed.lat[1] == 18);
+	CHECK(timed.side_on == 1);
+	run(2000);
+	CHECK(sm.view.state == RS_IDLE);
+
+	// The paddles: the dit paddle held for two dits, the keyer's edges 66 ms apart exactly, at the slack's latency too
+	memset(&timed, 0, sizeof(timed));
+	uint32_t t1 = now + 7;
+	paddle(false, true, t1);
+	run(150);
+	paddle(false, false, t1 + 150);	// held at the end of the first dit's space (132 ms): a second dit
+	run(400);
+	CHECK(timed.n == 4);
+	CHECK(timed.at[0] == t1 && timed.at[1] == t1 + 66 && timed.at[2] == t1 + 132 && timed.at[3] == t1 + 198);
+	CHECK(timed.lat[0] == 38);
+	CHECK(sm.view.cw_key_late == 0 && sm.view.cw_key_drop == 0);
+	run(2000);
+	CHECK(sm.view.state == RS_IDLE);
+
+	// Sidetone off: none
+	sd = settings_begin();
+	sd->cw_flags = SETTINGS_CW_SIDETONE_OFF;
+	settings_end(now);
+	memset(&timed, 0, sizeof(timed));
+	cw_key_edge(true, now);
+	run(30);
+	cw_key_edge(false, now);
+	run(2000);
+	CHECK(timed.n == 2 && timed.side_on == 0);
+
+	// A paddle edge older than the slack counts as late
+	sd = settings_begin();
+	sd->cw_flags = 0;
+	sd->cw_wpm = 0;
+	settings_end(now);
+	paddle(false, true, now);
+	run(100);
+	paddle(false, false, now - 60);
+	run(2000);
+	CHECK(sm.view.cw_key_late == 1);
+	fake_afsk.tone_key_at = NULL;
+	fake_afsk.tone_side = NULL;
+	CHECK(!radio_cw_sidetone_capable());
+}
 #endif
 
 // The UI's on-the-fly DMR changes (temporary timeslot, color code and mode), hear all latched, the one-shot talk
@@ -12408,6 +12502,7 @@ int main(void)
 	test_cw_straight_key();
 #if CONFIG_CW_PADDLES
 	test_cw_paddles();
+	test_cw_timed();
 #endif
 #endif
 #if CONFIG_SFR

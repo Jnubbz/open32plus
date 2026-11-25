@@ -7357,6 +7357,8 @@ static const set_item_t s_cw[] = {
 	LIST(TRN(SET_LABEL_CW_FARNSWORTH, "Farnsworth"), "morse spacing overall speed learning", UI_SET_CW_EFF_WPM,
 		v_cweff, n_cweff),
 	LIST(TRN(SET_LABEL_CW_TONE, "Tone"), "morse pitch sidetone frequency", UI_SET_CW_TONE_HZ, v_cwtone, n_cwtone),
+	// Sent CW on the radio's own speaker as well (morse.md 5.2): shown where the board has it
+	TOGGLE(TRN(SET_LABEL_CW_SIDETONE, "Sidetone"), "morse monitor hear own keying speaker", UI_SET_CW_SIDETONE),
 	// Carrier before a message's first letter: longer for receivers with battery save on
 	NUMBER(TRN(SET_LABEL_CW_LEAD_IN, "Lead-in"), "morse delay carrier first letter battery save", UI_SET_CW_LEAD_MS,
 	       300, 2000, 100, " ms"),
@@ -7588,6 +7590,8 @@ static bool set_hidden(const set_item_t *s)
 #endif
 	if (s->type != ST_ACTION && s->id == UI_SET_REF_TRIM)
 		return !(feats() & UI_FEAT_REF_TRIM);	// only a radio whose board has the trim
+	if (s->type != ST_ACTION && s->id == UI_SET_CW_SIDETONE)
+		return !(feats() & UI_FEAT_CW_SIDETONE);	// only where sent CW reaches the speaker
 	return !board_has_battery() && s->type != ST_ACTION &&
 	       (s->id == UI_SET_BATTERY_SAVER || s->id == UI_SET_LOW_BATTERY);
 }
