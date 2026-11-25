@@ -104,7 +104,7 @@ test("Baofeng updater: a block refused every time stops the write and names it; 
 	assert.equal(quiet.s.sent.length, 0);
 });
 
-// The DM-32 on Chrome (2026-11-25): every frame written at once arrived damaged, and the loader answered 0x43 and waited for
+// A radio on Chrome (2026-11-25, its hardware page 13.2): every frame written at once arrived damaged, and the loader answered 0x43 and waited for
 // the frame itself. The page sends the frame again without 0x02, then paces every frame; the old way (0x02 again) got
 // silence and failed block 1
 test("Baofeng updater: a frame asked for again (43) is resent without 02, and the rest are paced", async () => {

@@ -20,7 +20,7 @@ export const ERASE_TIMEOUT = 30000;	// step 7: the radio erases the application 
 export const RETRIES = 4;		// resends of a block the radio refuses (NAK) or doesn't answer
 // A block frame written in pieces of PACE bytes, each given its time on the line, once the radio has asked for a block
 // again (a damaged frame): a browser hands a USB-serial driver the whole 1028 bytes at once, and on the air test of
-// 2026-11-25 a DM-32 took every frame through Chrome damaged while serial_loader.py on the same cable wrote clean
+// 2026-11-25 a radio took every frame through Chrome damaged while serial_loader.py on the same cable wrote clean
 const PACE = 128;
 const BAUD = 115200;
 
@@ -233,8 +233,8 @@ export class BfLoader {
 			got = await this.readExact(1, this.stepTimeout);
 			if (got.length === 1 && got[0] === ACK) return;
 			if (got.length === 1 && got[0] === CRC_REQ) {
-				// A DM-32's loader answers a damaged frame with 0x43, not a NAK, and then waits for the frame itself: a
-				// 0x02 now would be taken as its first byte (measured 2026-11-25: 43, then silence to every 02). The
+				// The loader answers a damaged frame with 0x43, not a NAK, and then waits for the frame itself: a 0x02
+				// now would be taken as its first byte (the radio's hardware page, 13.2: 43, then silence to every 02). The
 				// frame goes again, and every frame from here on is paced
 				last = "asked for it again (43): it arrived damaged";
 				stx = false;

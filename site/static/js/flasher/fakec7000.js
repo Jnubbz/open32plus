@@ -94,7 +94,7 @@ export function fakeC7000Options(radio, fb) {
 // erase takes before step 7's answer; onEnd(), the end of transfer acknowledged. After step 3 it ignores step 1 (0x52) and waits for step 4, until the radio is
 // switched off (a new FakeBfLoader at the next power-on), as the radio does (hardware-dm32.md 13.2). onErase() and onBlock(k, data) (k from 0) let a radio model keep what is written.
 export class FakeBfLoader {
-	// again: a damaged frame answered 0x43 with the loader still waiting for the frame (a DM-32's, measured 2026-11-25), not
+	// again: a damaged frame answered 0x43 with the loader still waiting for the frame (as measured, hardware page 13.2), not
 	// NAK. damageWhole: a frame that arrives in one write is damaged (a cable driver that loses bytes of a large write)
 	constructor({ id, send, corrupt = [], silent = false, badStep2 = false, eraseMs = 0, again = false, damageWhole = false,
 		onErase = () => {}, onBlock = () => {}, onEnd = () => {} }) {
