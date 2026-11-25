@@ -344,8 +344,8 @@
 #define CONFIG_CW_DECODE		CONFIG_APRS_RX
 #endif
 // A bug on the OK and Back keys (docs/spec/morse.md 10): auto dits, a hand-timed dah
-#ifndef CONFIG_CW_BUG
-#define CONFIG_CW_BUG			CONFIG_CW_SEND
+#ifndef CONFIG_CW_PADDLES
+#define CONFIG_CW_PADDLES			CONFIG_CW_SEND
 #endif
 // The CW QSO helper (docs/spec/morse.md 9): the decoder's callsigns into exchange lines sent as CW messages
 #ifndef CONFIG_CW_QSO

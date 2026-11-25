@@ -20,6 +20,7 @@
 #include "settings/settings.h"
 #include "radio/ref_trim.h"
 #include "radio/morse.h"	// the CW keyer's limits (Settings > CW)
+#include "radio/cw_keyer.h"	// the paddles' keyer modes (Settings > CW > Paddle)
 #include "storage/storage.h"
 #include "codeplug/codeplug.h"
 #include "codeplug/codeplug_kv.h"
@@ -315,6 +316,10 @@ static __attribute__((noinline)) int32_t setting_get_flash(uint8_t id)
 		int32_t ms = (int32_t)SETTINGS_FIELD(cw_lead) * MORSE_LEAD_MS_STEP;
 		return ms >= MORSE_LEAD_MS_MIN && ms <= MORSE_LEAD_MS_MAX ? ms : MORSE_LEAD_MS_DEFAULT;
 	}
+	case UI_SET_CW_PADDLE:		// out of range: iambic B, as the keyer takes it
+		return SETTINGS_FIELD(cw_paddle) < CW_KEYER_MODES ? SETTINGS_FIELD(cw_paddle) : 0;
+	case UI_SET_CW_PADDLE_SWAP:
+		return SETTINGS_FIELD(cw_paddle_swap) != 0;
 	case UI_SET_CW_KEY_DELAY_MS: {	// out of range: 0 (radio_sm.c cw_key_delay)
 		int32_t ms = (int32_t)SETTINGS_FIELD(cw_key_delay) * MORSE_KEY_DELAY_MS_STEP;
 		return ms <= MORSE_KEY_DELAY_MS_MAX ? ms : 0;
@@ -669,6 +674,18 @@ bool ui_svc_setting_set(uint8_t id, int32_t value)
 			return false;
 		st = settings_begin();
 		st->cw_lead = (uint8_t)(value / MORSE_LEAD_MS_STEP);
+		settings_end(hal_millis());
+		return true;
+	case UI_SET_CW_PADDLE:
+		if (value < 0 || value >= CW_KEYER_MODES)
+			return false;
+		st = settings_begin();
+		st->cw_paddle = (uint8_t)value;
+		settings_end(hal_millis());
+		return true;
+	case UI_SET_CW_PADDLE_SWAP:
+		st = settings_begin();
+		st->cw_paddle_swap = value != 0;
 		settings_end(hal_millis());
 		return true;
 	case UI_SET_CW_KEY_DELAY_MS:

@@ -228,7 +228,7 @@ typedef struct {
 } ui_cw_t;
 bool ui_svc_cw_send(const char *text);		// key text as Morse on the FM channel; false: refused at once (ui_svc_cw_get)
 void ui_svc_cw_stop(void);			// stop the message being keyed
-void ui_svc_cw_paddles(bool on);		// OK and Back as the bug's paddles (CONFIG_CW_BUG, morse.md 10)
+void ui_svc_cw_paddles(bool on);		// OK and Back as the bug's paddles (CONFIG_CW_PADDLES, morse.md 10)
 void ui_svc_cw_get(ui_cw_t *out);
 // A canned message with {CALL} as the callsign in the radio name; 0 when it needs one and there is none
 uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap);
@@ -491,6 +491,8 @@ typedef enum {
 	UI_SET_CW_WPM, UI_SET_CW_EFF_WPM, UI_SET_CW_TONE_HZ,
 	UI_SET_CW_LEAD_MS,	// CW messages' lead-in in ms, MORSE_LEAD_MS_STEP steps (settings_t.cw_lead; stored 0 reads 600)
 	UI_SET_CW_HANG_MS,	// a straight key's hang in ms, MORSE_HANG_MS_STEP steps (settings_t.cw_hang; stored 0 reads 1000)
+	UI_SET_CW_PADDLE,	// the paddles' keyer, cw_keyer_mode_t (settings_t.cw_paddle; 0 iambic B)
+	UI_SET_CW_PADDLE_SWAP,	// OK the dah paddle, Back the dit one (settings_t.cw_paddle_swap)
 	UI_SET_CW_KEY_DELAY_MS,	// a straight key's and the bug's delay in ms, 0..MORSE_KEY_DELAY_MS_MAX (settings_t.cw_key_delay)
 	UI_SET_COUNT
 } ui_setting_t;

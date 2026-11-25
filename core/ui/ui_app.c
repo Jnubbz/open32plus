@@ -147,7 +147,7 @@ static void update_focus_target(void)
 		ui_svc_focus_target(0, false);
 }
 
-#if CONFIG_BACKLIGHT_TEST || CONFIG_SATELLITE_TLE || CONFIG_CW_DECODE || CONFIG_CW_BUG
+#if CONFIG_BACKLIGHT_TEST || CONFIG_SATELLITE_TLE || CONFIG_CW_DECODE || CONFIG_CW_PADDLES
 // Screens from the top down to stack level `from` leave the stack: each runs its leave hook (the backlight tests give
 // the light back)
 static void left(uint8_t from)

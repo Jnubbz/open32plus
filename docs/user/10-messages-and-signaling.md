@@ -118,11 +118,17 @@ Speed, Farnsworth spacing and tone are in **Settings > CW** ([Settings](17-setti
 
 ### Keying with OK and Back
 
-**Send CW > Key by hand** turns the radio's **OK** and **Back** keys into a bug, a semi-automatic key:
+**Send CW > Key by hand** turns the radio's **OK** and **Back** keys into paddles: **OK** for dits, **Back** for dahs.
+How they key is **Settings > CW > Paddle**:
 
-- Hold **OK** and the radio sends dits by itself at your **Speed** (Settings > CW) for as long as you hold it. A quick
-  tap sends one dit.
-- Hold **Back** for a dah. It lasts exactly as long as you hold it, as on a real bug.
+| Paddle | What it does |
+|---|---|
+| **Iambic B** (default) | Hold a paddle and its element repeats at your **Speed**. Squeeze both and they alternate. Let go of a squeeze and the keyer sends one more element |
+| **Iambic A** | The same, but it stops at the end of the element when you let go |
+| **Ultimatic** | Squeeze both and the paddle you pressed last repeats |
+| **Bug** | OK sends dits by itself; Back is a hand-timed dah, as long as you hold it, as on a real bug |
+
+**Swap paddles** (Settings > CW) makes Back the dit paddle and OK the dah one, for a left-handed operator.
 
 The first press turns the transmitter on. Your keying goes out as you key it, and the transmitter goes off once you
 have let go for **Key hang**, as with a straight key (below). The screen shows **Ready**, or **On air** while it

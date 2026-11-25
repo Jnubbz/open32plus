@@ -4420,7 +4420,7 @@ static void test_cw_straight_key(void)
 	settings_end(now);
 }
 
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 // ---- The bug (morse.md 10): the dit paddle's dits at the keyer's speed, the dah by hand, on the air a lead-in late as
 // the straight key's keying ----
 
@@ -4430,21 +4430,22 @@ static void paddle(bool dah, bool down, uint32_t at)
 	radio_sm_request(&sm, &r, now);
 }
 
-static void test_cw_bug(void)
+static void test_cw_paddles(void)
 {
 	setup_codeplug();
 	start();
 	run(50);
 	settings_t *sd = settings_begin();
 	sd->cw_key_delay = 6;	// 600 ms on air after the paddles (live, the dits start at the press, 50 ms behind: the
-	settings_end(now);	// bug runs that far behind now)
+	sd->cw_paddle = 3;	// keyer runs that far behind now). The bug: the dah as long as it is held
+	settings_end(now);
 	memset(&tone, 0, sizeof(tone));
 	int tx0 = hw.tx_calls, off0 = hw.tx_off_calls;
 
 	// 20 wpm (60 ms dots): the dit paddle held 250 ms makes three dits; then a 200 ms dah
 	uint32_t t0 = now;
 	paddle(false, true, now);
-	CHECK(sm.view.state == RS_TX && sm.cw_bug && sm.cw_hand && hw.tx_calls == tx0 + 1 && tone.changes == 0);
+	CHECK(sm.view.state == RS_TX && sm.cw_paddles && sm.cw_hand && hw.tx_calls == tx0 + 1 && tone.changes == 0);
 	run(250);
 	paddle(false, false, now);
 	run(250);
@@ -4457,14 +4458,14 @@ static void test_cw_bug(void)
 	CHECK(tone.last_up_ms - tone.first_down_ms >= 695 && tone.last_up_ms - tone.first_down_ms <= 705);
 	// The hang, then the channel again
 	run(1000);
-	CHECK(sm.view.state == RS_IDLE && !sm.cw_bug && !sm.cw_hand && hw.tx_off_calls == off0 + 1 && tone.hz == 0);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_paddles && !sm.cw_hand && hw.tx_off_calls == off0 + 1 && tone.hz == 0);
 
 	// A held dit paddle keeps the carrier past the hang; PTT cuts it
 	paddle(false, true, now);
 	run(3000);
-	CHECK(sm.view.state == RS_TX && sm.cw_bug);
+	CHECK(sm.view.state == RS_TX && sm.cw_paddles);
 	req(RREQ_PTT, 1);
-	CHECK(sm.view.state == RS_IDLE && !sm.cw_bug && tone.hz == 0);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_paddles && tone.hz == 0);
 	req(RREQ_PTT, 0);
 	paddle(false, false, now);
 	run(100);
@@ -4473,7 +4474,7 @@ static void test_cw_bug(void)
 	// The straight key does nothing while the bug keys, and the paddles nothing while a message does
 	paddle(true, true, now);
 	cw_key_edge(true, now);
-	CHECK(sm.cw_bug && !sm.view.monitor);
+	CHECK(sm.cw_paddles && !sm.view.monitor);
 	cw_key_edge(false, now);
 	paddle(true, false, now);
 	run(3000);
@@ -4481,7 +4482,7 @@ static void test_cw_bug(void)
 	cw_send("E");
 	run(100);
 	paddle(false, true, now);
-	CHECK(!sm.cw_bug && sm.cw_msg);
+	CHECK(!sm.cw_paddles && sm.cw_msg);
 	paddle(false, false, now);
 	run(3000);
 	CHECK(sm.view.state == RS_IDLE);
@@ -4491,7 +4492,7 @@ static void test_cw_bug(void)
 	req(RREQ_ZONE_POS, 3);
 	run(100);
 	paddle(false, true, now);
-	CHECK(hw.tx_calls == tx0 && !sm.cw_bug);
+	CHECK(hw.tx_calls == tx0 && !sm.cw_paddles);
 	paddle(false, false, now);
 	req(RREQ_ZONE_POS, 0);
 	run(100);
@@ -4509,6 +4510,33 @@ static void test_cw_bug(void)
 	CHECK(tone.down_ms >= 55 && tone.down_ms <= 65);
 	run(1500);
 	CHECK(sm.view.state == RS_IDLE);
+	// Iambic B, the default: the dah paddle held 200 ms makes one 180 ms dah, not a 200 ms one
+	sd = settings_begin();
+	sd->cw_paddle = 0;
+	settings_end(now);
+	memset(&tone, 0, sizeof(tone));
+	paddle(true, true, now);
+	run(200);
+	paddle(true, false, now);
+	run(400);
+	CHECK(tone.changes == 2 && tone.down_ms >= 175 && tone.down_ms <= 185);
+	run(1500);
+	CHECK(sm.view.state == RS_IDLE);
+	// Swap paddles: the dah paddle (Back) makes dits
+	sd = settings_begin();
+	sd->cw_paddle_swap = 1;
+	settings_end(now);
+	memset(&tone, 0, sizeof(tone));
+	paddle(true, true, now);
+	run(30);
+	paddle(true, false, now);
+	run(300);
+	CHECK(tone.changes == 2 && tone.down_ms >= 55 && tone.down_ms <= 65 && sm.paddle_swap);
+	run(1500);
+	CHECK(sm.view.state == RS_IDLE);
+	sd = settings_begin();
+	sd->cw_paddle_swap = 0;
+	settings_end(now);
 }
 #endif
 #endif
@@ -12378,8 +12406,8 @@ int main(void)
 #if CONFIG_CW_SEND
 	test_cw_message();
 	test_cw_straight_key();
-#if CONFIG_CW_BUG
-	test_cw_bug();
+#if CONFIG_CW_PADDLES
+	test_cw_paddles();
 #endif
 #endif
 #if CONFIG_SFR

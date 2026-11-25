@@ -32,7 +32,7 @@ typedef enum {
 	// back into the key's own action elsewhere. The gesture says press or long press
 	ACT_HOME_KEY_1, ACT_HOME_KEY_2, ACT_HOME_KEY_3, ACT_HOME_KEY_4,
 	ACT_CW_KEY,		// a straight key on a side key: raw down / up edges (CONFIG_CW_SEND, morse.md 8)
-	ACT_CW_DIT, ACT_CW_DAH,	// the bug's paddles: OK and Back on the Key CW screen, raw edges (CONFIG_CW_BUG, morse.md 10)
+	ACT_CW_DIT, ACT_CW_DAH,	// the bug's paddles: OK and Back on the Key CW screen, raw edges (CONFIG_CW_PADDLES, morse.md 10)
 	ACT_COUNT
 } input_action_t;
 

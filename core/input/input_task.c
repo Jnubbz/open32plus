@@ -27,7 +27,7 @@ static input_engine_t engine;
 // until no key is held, so a key never changes meaning between its press and its release
 static keymap_entry_t keymap_live[INPUT_KEYS_MAX], keymap_next[INPUT_KEYS_MAX];
 static volatile bool keymap_pending;
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 // The bug's paddles (input_set_paddles): the map in use is keymap_base with OK and BACK made paddles
 static keymap_entry_t keymap_base[INPUT_KEYS_MAX];
 static volatile bool paddles_want;
@@ -165,7 +165,7 @@ static void input_task(void *arg)
 			enc_carry = (int16_t)(steps > 0 ? steps - 127 : steps + 127);
 			steps = steps > 0 ? 127 : -127;
 		}
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 		if ((keymap_pending || paddles_want != paddles_on) && engine.held == 0) {
 			taskENTER_CRITICAL();
 			if (keymap_pending) {
@@ -198,7 +198,7 @@ void input_start(void)
 	configASSERT(events != NULL);
 	uint8_t n = board.keymap_len > INPUT_KEYS_MAX ? INPUT_KEYS_MAX : board.keymap_len;
 	memcpy(keymap_live, board.keymap, n * sizeof(keymap_live[0]));
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	memcpy(keymap_base, board.keymap, n * sizeof(keymap_base[0]));
 #endif
 	input_engine_init(&engine, keymap_live, n, hal_millis());
@@ -260,7 +260,7 @@ void input_set_keymap(const keymap_entry_t *map)
 	taskEXIT_CRITICAL();
 }
 
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 void input_set_paddles(bool on)
 {
 	paddles_want = on;

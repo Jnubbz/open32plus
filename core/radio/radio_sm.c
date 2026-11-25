@@ -7225,7 +7225,7 @@ static void hotspot_follow_power(radio_sm_t *sm)
 // still did with a receiver's battery save on (morse.md 5.2)
 #define CW_TAIL_MS		150	// and after the last
 enum { CW_OFF = 0, CW_KEYING, CW_TAIL, CW_HAND };	// CW_HAND: a straight key or the bug (morse.md 8, 10)
-#define CW_BUG_SLACK_MS		50	// the bug runs this far behind now: a paddle edge is in the queue by then
+#define CW_KEYER_SLACK_MS		50	// the bug runs this far behind now: a paddle edge is in the queue by then
 #if CONFIG_CW_SEND
 // A message's tone level through the audio path (hal_afsk_t level, 50 = about 3 kHz peak): near the HR_C7000 tone
 // generator's 1.1 kHz at 12.5 kHz and 1.5 kHz at 25 kHz that the CW IDs use. Unmeasured on the air
@@ -7262,8 +7262,8 @@ static void cw_ended(radio_sm_t *sm, uint8_t why, uint32_t ms)
 	(void)sent;
 #if CONFIG_CW_SEND
 	if (sm->cw_hand) {
-#if CONFIG_CW_BUG
-		sm->cw_bug = false;
+#if CONFIG_CW_PADDLES
+		sm->cw_paddles = false;
 #endif
 		sm->cw_hand = sm->cw_msg = false;	// no message outcome: nothing was handed over
 		sm->view.cw_tx = false;
@@ -7644,8 +7644,8 @@ static bool cwhand_begin(radio_sm_t *sm, uint32_t now_ms)
 		return false;
 	}
 	uint8_t wpm = cw_speed(sm, NULL);	// the tone, and the bug's dots
-#if CONFIG_CW_BUG
-	sm->bug_dot_ms = (uint16_t)(1200u / wpm);
+#if CONFIG_CW_PADDLES
+	sm->keyer_dot_ms = (uint16_t)(1200u / wpm);
 #else
 	(void)wpm;
 #endif
@@ -7676,8 +7676,8 @@ static bool cwhand_begin(radio_sm_t *sm, uint32_t now_ms)
 static void cwhand_key(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 {
 	bool down = req->arg != 0;
-#if CONFIG_CW_BUG
-	if (sm->cw_bug) {
+#if CONFIG_CW_PADDLES
+	if (sm->cw_paddles) {
 		return;
 	}
 #endif
@@ -7692,20 +7692,25 @@ static void cwhand_key(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 	}
 }
 
-#if CONFIG_CW_BUG
-// RREQ_CW_PADDLE: a bug paddle's edge (morse.md 10). The first press starts a session as the straight key's does; the
-// edges go to the bug, which makes the key's edges as the radio core runs it (cw_service)
-static void cwbug_paddle(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
+#if CONFIG_CW_PADDLES
+// RREQ_CW_PADDLE: a paddle's edge (morse.md 10). The first press starts a session as the straight key's does, with
+// Settings > CW > Paddle's mode; the edges go to the keyer, which makes the key's edges as the radio core runs it
+// (cw_service). Swap paddles: the dit and dah paddles change places (a left-handed operator)
+static void cwpaddle_edge(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 {
 	bool down = (req->arg & 1) != 0, dah = (req->arg & 2) != 0;
-	if (!sm->cw_bug) {
+	settings_t *st = &st_copy;
+	if (!sm->cw_paddles) {
 		if (!down || sm->cw_msg || !cwhand_begin(sm, now_ms)) {
 			return;
 		}
-		sm->cw_bug = true;
-		cw_bug_start(&sm->bug, req->arg2);
+		sm->cw_paddles = true;
+		settings_read(st);
+		sm->paddle_swap = st->cw_paddle_swap != 0;
+		cw_keyer_start(&sm->keyer, st->cw_paddle, req->arg2);
 	}
-	if (!cw_bug_edge(&sm->bug, dah, down, req->arg2)) {
+	dah = dah != sm->paddle_swap;
+	if (!cw_keyer_edge(&sm->keyer, dah, down, req->arg2)) {
 		cwmsg_cut(sm, now_ms);
 	}
 }
@@ -7726,18 +7731,18 @@ static void cw_service(radio_sm_t *sm, uint32_t now_ms)
 		}
 #if CONFIG_CW_SEND
 	} else if (sm->cw_phase == CW_HAND) {
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 		// The bug runs a little behind: a paddle's edge reaches the radio task after it happened, and it must be in
 		// the queue before the bug passes its time. The lead-in is far longer
-		if (sm->cw_bug && !cw_bug_run(&sm->bug, now_ms - CW_BUG_SLACK_MS, sm->bug_dot_ms, &sm->hand)) {
+		if (sm->cw_paddles && !cw_keyer_run(&sm->keyer, now_ms - CW_KEYER_SLACK_MS, sm->keyer_dot_ms, &sm->hand)) {
 			cwmsg_cut(sm, now_ms);
 			return;
 		}
 #endif
 		bool done;
 		bool key = cw_hand_poll(&sm->hand, now_ms, sm->hand_lead_ms, sm->hand_hang_ms, &done);
-#if CONFIG_CW_BUG
-		done = done && (!sm->cw_bug || cw_bug_idle(&sm->bug));
+#if CONFIG_CW_PADDLES
+		done = done && (!sm->cw_paddles || cw_keyer_idle(&sm->keyer));
 #endif
 		if (key != sm->cw_key) {
 			cw_key(sm, key);
@@ -9518,8 +9523,8 @@ void radio_sm_request(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 	case RREQ_CW_SEND: cwmsg_start(sm, now_ms); break;
 	case RREQ_CW_STOP: cwmsg_cut(sm, now_ms); break;
 	case RREQ_CW_KEY: cwhand_key(sm, req, now_ms); break;
-#if CONFIG_CW_BUG
-	case RREQ_CW_PADDLE: cwbug_paddle(sm, req, now_ms); break;
+#if CONFIG_CW_PADDLES
+	case RREQ_CW_PADDLE: cwpaddle_edge(sm, req, now_ms); break;
 #endif
 #endif
 	case RREQ_MONITOR: monitor_request(sm, req, now_ms); break;
