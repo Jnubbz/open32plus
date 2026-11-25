@@ -211,6 +211,21 @@ power, received on an analog Baofeng handheld and watched on an FT-991A's scope 
 
 Still to measure: the FIFO tone's deviation on the SDR bench, and VHF.
 
+### CW decoder
+
+On the air, 2026-11-24, build `3ab23bf`. The DM-32 received MCW from an FT-991A (FM, 600 Hz tone, keyer at 16 wpm)
+on Messages > Decode CW ([morse.md](../spec/morse.md) 7).
+
+| Check | Result |
+|---|---|
+| Build `e4f76f6` | locked on 600 Hz but read 27 wpm, text garbled: receiver noise in the gaps moved the lock to 400 Hz, and each new lock cut 30 ms off the next element. Fixed in `684e6ca` |
+| `CQ CQ DE KN0BLE KN0BLE K` from the keyer memory | decoded clean, every character, both zeros |
+| Pitch shown | 600 Hz, held through the gaps |
+| Speed shown | 13 to 14 wpm for 16 sent: the marks measure a little long. The text is right; the readout only |
+| A hand-sent run that went wrong mid-message on the sender's side | the start decoded clean, the middle split; taken as the signal, not the decoder |
+
+Still to check: other pitches and speeds, a weak signal, VHF.
+
 ## NXDN Scrambler interoperability
 
 Manual on-air testing with build `21bf5df8` (firmware source matching `c11d6e83`) confirmed scrambled NXDN voice
