@@ -26,4 +26,10 @@ jobs:
       - name: Ask Pages to build main
         env:
           HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
-        run: curl -fsS -X POST "$HOOK" > /dev/null && echo "Pages build of main requested"
+        # A fork without the Cloudflare site has no hook: nothing to rebuild
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::notice::no CLOUDFLARE_DEPLOY_HOOK: no Cloudflare site to rebuild"
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null && echo "Pages build of main requested"

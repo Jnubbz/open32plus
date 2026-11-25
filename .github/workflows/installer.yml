@@ -18,9 +18,8 @@ on:
       - tools/rfoundry/**
       - boards/**
       - .github/workflows/installer.yml
-  release:
-    types: [published]
-  # a release the Release workflow publishes with its own token starts no release event: its end does
+  # A release: once the Release workflow ends, whoever published it. This run is main's, which the github-pages
+  # environment lets deploy; a run on the release event is the tag's, and Pages refused it
   workflow_run:
     workflows: [Release]
     types: [completed]
