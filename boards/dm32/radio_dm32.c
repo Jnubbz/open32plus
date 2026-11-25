@@ -821,8 +821,8 @@ static bool afsk_tx_route(bool on)
 #if CONFIG_CW_SEND
 // The CW sidetone (hal_afsk_t.tone_side): the prompt FIFO plays to the codec's DAC (modem-hrc7000.md 8.4), and in TX
 // the speaker listens to the codec's line out (speaker_source), so the amplifier alone should make the sidetone. The
-// microphone stays muted on the route, so the speaker can't reach the air through it. Untested on the radio: whether
-// the speaker plays it, and whether the amplifier changes the deviation, are bench checks (morse.md 5.2)
+// microphone stays muted on the route, so the speaker can't reach the air through it. On the radio (2026-11-25) the
+// speaker plays it at the volume knob's level; whether the amplifier changes the deviation is a bench check (morse.md 5.2)
 static void afsk_side(bool on)
 {
 	if (on && (!transmitting || !afsk_tx || mode != RADIO_MODE_FM)) {
