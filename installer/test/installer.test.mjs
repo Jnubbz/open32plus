@@ -114,3 +114,19 @@ test("the whole install over the updater: the radio gets exactly the install byt
 	assert.ok(fake.done);
 	assert.ok(equal(fake.image().subarray(0, bytes.length), bytes));
 });
+
+// A file named for another radio (a release asset or a build) is caught by its name; a renamed one isn't named
+test("fileBoard reads the radio from a firmware file's name", () => {
+	const ids = ["dm32", "dm1801pro", "db25d"];
+	assert.equal(core.fileBoard("rfoundry-dm32-v26.11b1.bin", ids), "dm32");
+	assert.equal(core.fileBoard("rfoundry-dm1801pro-v26.11b1.bin", ids), "dm1801pro");
+	assert.equal(core.fileBoard("rfoundry-dm32-v26.11.2.bin", ids), "dm32");
+	assert.equal(core.fileBoard("rfoundry_dm32.bin", ids), "dm32");
+	assert.equal(core.fileBoard("rfoundry_dm32_codec.bin", ids), "dm32");
+	assert.equal(core.fileBoard("rfoundry-dm32-v26.11b1 (1).bin", ids), "dm32");	// a browser's second download
+	assert.equal(core.fileBoard("RFOUNDRY-DM32-V26.11B1.BIN", ids), "dm32");
+	assert.equal(core.fileBoard("firmware.bin", ids), null);
+	assert.equal(core.fileBoard("rfoundry-md380-v26.11b1.bin", ids), null);	// not a radio this page installs
+	assert.equal(core.fileBoard("rfoundry-dm32-v26.11b1.json", ids), null);
+});
+

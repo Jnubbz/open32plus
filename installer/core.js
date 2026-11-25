@@ -28,6 +28,15 @@ export async function checkRelease(manifest, image, boardId) {
 	if ((await sha256(image)) !== want.sha256) throw new InstallError("the download's SHA-256 doesn't match its manifest: download it again");
 }
 
+// The board a firmware file's name says it is for, among boardIds: a release's rfoundry-<board>-<version>.bin or a
+// build's rfoundry_<board>.bin / rfoundry_<board>_codec.bin. null when the name says none (a renamed file)
+export function fileBoard(name, boardIds) {
+	const m = /^rfoundry[-_](.+?)(?:-v\d[\w.]*|_codec)?(?: \(\d+\))?\.bin$/i.exec(name || "");
+	if (!m) return null;
+	const id = m[1].toLowerCase();
+	return boardIds.includes(id) ? id : null;
+}
+
 // A file the user built: the plain image (rfoundry_<board>.bin), or one merged with its codec (rfoundry_<board>_codec.bin,
 // tools/hrc7000_codec.py), whose slot is split off and checked. Returns {image, slot: Uint8Array | null}
 export async function splitOwn(c, boardId, data) {
