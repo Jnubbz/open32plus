@@ -329,7 +329,7 @@ clock`; ? = not known yet). No driver reads the clock yet ([radio-features.md](s
 | FM TX tones: roger beep, 1750 Hz burst | `FM_TX_TONES` | 568 | — | MD-380: TX tone path not written |
 | DTMF transmit from the keys | `DTMF` | 920 | — | MD-380: TX tone path not written |
 | CW messages: canned or typed text keyed as Morse on an FM channel, Settings > CW | `CW_SEND` | 2,864 | — | MD-380: TX tone path not written. DM-1701 figure (2026-11-24). On the air with a DM-32UV (2026-11-24, [its bring-up](testing/dm32-bringup.md#14-cw-messages)) |
-| CW paddles: Send CW > Key by hand, OK and Back a paddle keyer (iambic B or A, ultimatic, bug) | `CW_PADDLES` | 1630 | — | Needs CW_SEND. DM-1701 figure (2026-11-25). The bug and live keying on air on the DM-32UV (2026-11-25); the other modes untested on air |
+| CW paddles: Send CW > Key by hand, OK and Back a paddle keyer (iambic B or A, ultimatic, bug) | `CW_PADDLES` | 1630 | — | Needs CW_SEND. DM-1701 figure (2026-11-25), untested on air |
 | CW QSO helper: Decode CW > OK lists the calls heard; exchange lines with the call filled in, sent as CW | `CW_QSO` | 2,000 | — | Needs CW_SEND and CW_DECODE. DM-1701 figure (2026-11-24), untested on air |
 | CW decoder: Morse from the FM channel shown as text, Messages > Decode CW | `CW_DECODE` | 3,476 | — | Needs APRS_RX's received-audio path. DM-1701 figure (2026-11-24). On the air with a DM-32UV (2026-11-24, [its bring-up](testing/dm32-bringup.md#cw-decoder)) |
 | FM VOX | `VOX` | 496 | 1,064 |  |
