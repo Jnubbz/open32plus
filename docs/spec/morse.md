@@ -125,7 +125,7 @@ a full queue frees it again.
 
 `tests/host/morseTest.c`: punctuation, prosigns, Farnsworth gaps and keyed timelines, and a 160 character buffer.
 `tests/host/mmdvmTest.c`: PARIS at 20 wpm, the code table and keying over time for the CW ID. CW messages: 5.4.
-The decoder: 7.5.
+The decoder: 7.5. The straight key: 8.3.
 
 ## 7. Decoding CW (`CONFIG_CW_DECODE`)
 
@@ -186,3 +186,51 @@ first word misspaced, the rest whole.
 | `uiFlowTest` | The Messages row, `cw-decode` with the status and text, #, Back |
 | Debug link | `cw.dec_*` in view section 39 ([debuglink.md](debuglink.md)) |
 | HIL | `tests/hil/features.toml` `cw_decode` |
+
+## 8. A straight key (`CONFIG_CW_SEND`)
+
+A side key set to Straight key keys MCW on the FM channel by hand: the tone sounds on the air while the key is down.
+It is a CW message whose keying comes from the key instead of text, so it shares section 5.2's rules: the channel,
+power and subtone, the idle and transmit checks, the audio tone path, PTT and retunes cutting it.
+
+### 8.1 What the user does
+
+| Step | Behavior |
+|---|---|
+| Assign | Settings > Keys: a side key's press set to Straight key (`KEYFN_CW_KEY`, 22). Press only: the key sends raw down and up edges (`ACT_CW_KEY`), as Tone burst does, so it has no long press. Not on a home key (no raw edges there) |
+| Key | The first press keys the channel; each press and release after it goes on the air a lead-in later, with the operator's own timing |
+| Stop | The carrier drops once the key has been up for the hang time on the air. PTT, a retune or the monitor cut it at once |
+| Settings | Settings > CW: Lead-in (`cw_lead`, shared with CW messages) is the delay; Key hang 300..3000 ms in 100 ms steps (`cw_hang`, 0 = 1000) is the hang. Tone (`cw_tone_hz`) is the tone; Speed and Farnsworth play no part |
+| Refused | A press on a channel that isn't FM, while the radio isn't idle, or where a transmission isn't allowed beeps (`BEEP_ERROR`) and keys nothing. A press while a CW message keys does nothing |
+
+### 8.2 The keying (`core/radio/cw_hand.c`)
+
+| Rule | Behavior | Why |
+|---|---|---|
+| Time stamps | `radio_req_cw_key()` posts each edge with `hal_millis()` taken in the input task (`RREQ_CW_KEY`, arg2) | The keying plays from when the edge happened. The queue and the radio task's own timing add no jitter |
+| Delay | An edge plays at its time plus the lead-in (`cw_hand_poll`, every `RADIO_TICK_MS`) | The receivers' squelch, battery save and subtone decoder open on the carrier before the first element, as for a message, and the first element keeps its length |
+| Queue | 32 edges. A repeat of the last edge is dropped. A full queue ends the session (`cut`) | 16 elements inside a 2 s lead-in is past anyone's hand speed |
+| Hang | Done once the air key has been up `cw_hang` with nothing queued and the side key up; then `cw_finish()` and `tune()` back to the channel | Semi break-in: the carrier stays up through the gaps between letters and words |
+| Time-out | No length to check first: the channel's TOT ends a session as it ends PTT, with `BEEP_ERROR` | A held key can't transmit for ever |
+| View | `RS_TX`, `cw_tx`, `tx_auto` false (the user keyed it: the screen wakes) | |
+| Outcome | None in `radio_cwmsg_get()`: no message was handed over | The CW message screens show only messages |
+
+The input scan (`INPUT_SCAN_MS`, 10 ms, two agreeing scans to debounce) sets the timing's resolution: both edges are
+late by the same debounce, so an element's length is kept to within a scan.
+
+The radio's own speaker plays no sidetone yet. The HR_C7000's sidetone (`hal_radio_t.tx_tone_side`) follows its tone
+generator, which garbles the subtone ([modem-hrc7000.md](modem-hrc7000.md) 8.3). Whether the audio tone path can reach
+the speaker during a transmission is not yet known. Listen on a second receiver meanwhile.
+
+### 8.3 Size, switches and tests
+
+| Item | Detail |
+|---|---|
+| Switch | Part of `CONFIG_CW_SEND` |
+| RAM | About 140 bytes in `radio_sm_t` (`cw_hand_t`) |
+| Settings | `cw_hang` in the old `reserved11`'s last byte (offset 407; [settings-store.md](settings-store.md)) |
+| `morseTest` | `cw_hand`: the delay, element lengths kept, the hang, a press during the hang, a held key, a full queue, the clock wrapping |
+| `keyassignTest` | Straight key's number, press only, raw edges through the gesture engine, the PTT lock, never on a home key |
+| `radioCoreTest` | A dot and a dash keyed a lead-in late with their lengths, the hang, a late request playing on time, a press during the hang, the hang setting, PTT and a channel change cutting it, a CW message refused over it and the key ignored during one, refusals on DMR and TX inhibit, the time-out |
+| Debug link | `cw.hang` and `cw.tx` in view section 39 ([debuglink.md](debuglink.md)) |
+

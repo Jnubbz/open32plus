@@ -6853,7 +6853,8 @@ static const tr_id_t n_possrc[] = { TRN(VALUE_AUTO, "Auto"), TRX(WORD_GPS, "GPS"
 static const tr_id_t n_possend[] = { TRN(VALUE_OFF, "Off"), TRN(VALUE_1_MIN, "1 min"), TRN(VALUE_5_MIN, "5 min"),
 	TRN(VALUE_15_MIN, "15 min") };
 #if CONFIG_KEY_ASSIGN
-// Side keys (core/input/keyassign.h, KEYFN_* values): monitor needs the key held, so it is a press only;
+// Side keys (core/input/keyassign.h, KEYFN_* values): monitor, tone burst and straight key need the key held, so they
+// are a press only;
 // emergency is hold to activate, so a long press only
 static const int16_t v_keyfn_press[] = { KEYFN_DEFAULT, KEYFN_NONE, KEYFN_MONITOR, KEYFN_TALK_TARGET, KEYFN_POWER,
 					 KEYFN_ZONE_UP, KEYFN_ZONE_DOWN, KEYFN_SCAN, KEYFN_SCAN_SKIP, KEYFN_MONITOR_TOGGLE,
@@ -6861,6 +6862,9 @@ static const int16_t v_keyfn_press[] = { KEYFN_DEFAULT, KEYFN_NONE, KEYFN_MONITO
 					 KEYFN_HOME_ZONE,
 #if CONFIG_FM_TX_TONES
 					 KEYFN_TONE_BURST,
+#endif
+#if CONFIG_CW_SEND
+					 KEYFN_CW_KEY,
 #endif
 #if CONFIG_VFO_FM || CONFIG_VFO_DMR
 					 KEYFN_COPY_VFO, KEYFN_VFO_TOGGLE,
@@ -6881,6 +6885,9 @@ static const tr_id_t n_keyfn_press[] = { TRN(VALUE_DEFAULT, "Default"), TRN(KEYF
 					     TRN(WORD_KEY_LOCK, "Key lock"), TRN(KEYFN_VALUE_HOME_ZONE, "Home zone"),
 #if CONFIG_FM_TX_TONES
 					     TRN(WORD_TONE_BURST, "Tone burst"),
+#endif
+#if CONFIG_CW_SEND
+					     TRN(KEYFN_VALUE_STRAIGHT_KEY, "Straight key"),
 #endif
 #if CONFIG_VFO_FM || CONFIG_VFO_DMR
 					     TRN(KEYFN_VALUE_COPY_TO_VFO, "Copy to VFO"),
@@ -7114,7 +7121,7 @@ static const set_item_t s_talk[] = {
 };
 #if CONFIG_CW_SEND
 // Settings > CW (docs/spec/morse.md): the keyer's speed and tone (the CW IDs' too), CW messages' Farnsworth speed
-// and lead-in
+// and lead-in (a straight key's delay too), a straight key's hang
 static const set_item_t s_cw[] = {
 	NUMBER(TRN(SET_LABEL_CW_SPEED, "Speed"), "morse wpm words per minute keyer", UI_SET_CW_WPM, 5, 40, 1, " wpm"),
 	LIST(TRN(SET_LABEL_CW_FARNSWORTH, "Farnsworth"), "morse spacing overall speed learning", UI_SET_CW_EFF_WPM,
@@ -7123,6 +7130,9 @@ static const set_item_t s_cw[] = {
 	// Carrier before a message's first letter: longer for receivers with battery save on
 	NUMBER(TRN(SET_LABEL_CW_LEAD_IN, "Lead-in"), "morse delay carrier first letter battery save", UI_SET_CW_LEAD_MS,
 	       300, 2000, 100, " ms"),
+	// How long a straight key's carrier stays up after the last release (morse.md 8)
+	NUMBER(TRN(SET_LABEL_CW_KEY_HANG, "Key hang"), "morse straight key break-in delay carrier side key", UI_SET_CW_HANG_MS,
+	       300, 3000, 100, " ms"),
 };
 #endif
 #if CONFIG_DMR && CONFIG_DMR_PRIVACY

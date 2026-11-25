@@ -3853,6 +3853,11 @@ msgid "Home zone"
 msgstr "Zona de inicio"
 
 #: core/ui/ui_menus.c
+msgctxt "KEYFN_VALUE_STRAIGHT_KEY"
+msgid "Straight key"
+msgstr "Manipulador vertical"
+
+#: core/ui/ui_menus.c
 msgctxt "KEYFN_VALUE_COPY_TO_VFO"
 msgid "Copy to VFO"
 msgstr "Copiar a VFO"
@@ -4161,6 +4166,11 @@ msgstr "Tono"
 msgctxt "SET_LABEL_CW_LEAD_IN"
 msgid "Lead-in"
 msgstr "Retardo inicial"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_KEY_HANG"
+msgid "Key hang"
+msgstr "Retardo final"
 
 #: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"

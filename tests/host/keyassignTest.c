@@ -4,15 +4,17 @@
 // what each slot may hold, and the key map built from them, run through the gesture engine
 #include <stdio.h>
 #include <string.h>
+#include "config.h"
 #include "input/keyassign.h"
 #include "input/input_engine.h"
 #include "input/input_forward.h"
 
-static unsigned ptt_downs, ptt_ups, burst_downs, burst_ups;
+static unsigned ptt_downs, ptt_ups, burst_downs, burst_ups, cwkey_downs, cwkey_ups;
 void radio_req_ptt(bool down) { if (down) ptt_downs++; else ptt_ups++; }
 void radio_req_monitor(bool down) { (void)down; }
 void radio_req_monitor_held_up(void) {}
 void radio_req_tone_burst_key(bool down) { if (down) burst_downs++; else burst_ups++; }
+void radio_req_cw_key(bool down) { if (down) cwkey_downs++; else cwkey_ups++; }
 
 static int failures;
 static int checks;
@@ -99,6 +101,8 @@ static void test_allowed(void)
 	CHECK(!keyassign_allowed(KEYFN_EMERGENCY, false) && keyassign_allowed(KEYFN_EMERGENCY, true));
 	CHECK(KEYFN_TONE_BURST == 18);
 	CHECK(keyassign_allowed(KEYFN_TONE_BURST, false) && !keyassign_allowed(KEYFN_TONE_BURST, true));
+	CHECK(KEYFN_CW_KEY == 22);	// stored: never renumbered
+	CHECK(keyassign_allowed(KEYFN_CW_KEY, false) == (CONFIG_CW_SEND != 0) && !keyassign_allowed(KEYFN_CW_KEY, true));
 	CHECK(!keyassign_allowed(KEYFN_COUNT, false));
 	// Emergency on a press would go off by accident; monitor on a long press can't be held
 	keyassign_set(s, 0, false, KEYFN_EMERGENCY);
@@ -157,7 +161,7 @@ static void test_toggles(void)
 	// Stored in the codeplug's slots: append only, so every value that shipped keeps its number
 	CHECK(KEYFN_DEFAULT == 0 && KEYFN_NONE == 1 && KEYFN_MONITOR == 2 && KEYFN_TALK_TARGET == 3 &&
 	      KEYFN_POWER == 4 && KEYFN_ZONE_UP == 5 && KEYFN_ZONE_DOWN == 6 && KEYFN_SCAN == 7 && KEYFN_EMERGENCY == 8);
-	CHECK(KEYFN_HEAR_ALL == 9 && KEYFN_MONITOR_LATCH == 10 && KEYFN_COUNT == 22);
+	CHECK(KEYFN_HEAR_ALL == 9 && KEYFN_MONITOR_LATCH == 10 && KEYFN_COUNT == 23 && KEYFN_CW_KEY == 22);
 	for (unsigned i = 0; i < sizeof t / sizeof t[0]; i++) {
 		uint16_t s[KEYASSIGN_SLOTS] = { 0 };
 		CHECK(t[i].fn == t[i].value);
@@ -292,6 +296,42 @@ static void test_burst_edges(void)
 	}
 }
 
+// A straight key (morse.md 8): held as long as the key is, so raw edges and no long press; edges reach the radio
+// task, a press only when PTT isn't locked out, a release always
+static void test_cw_key(void)
+{
+#if CONFIG_CW_SEND
+	uint16_t s[KEYASSIGN_SLOTS] = { 0 };
+	input_engine_t e;
+	uint32_t now = 1000;
+	keyassign_set(s, 1, false, KEYFN_CW_KEY);
+	CHECK(keyassign_get(s, 1, false) == KEYFN_CW_KEY);
+	keyassign_build(base, N, side, 3, s, map);
+	CHECK(map[2].raw_edges && map[2].short_action == ACT_CW_KEY && map[2].long_action == ACT_CW_KEY &&
+	      !map[2].repeat);
+	input_engine_init(&e, map, N, now);
+	input_engine_step(&e, 0, 0, now, emit, NULL);
+	// a dot and a held dash alike: a press and a release, nothing at the long-press threshold
+	for (unsigned ms = 60; ms <= 3000; ms += 2940) {
+		nev = 0;
+		hold(&e, &now, 1u << K_SK2, ms);
+		CHECK(nev == 2 && evs[0].action == ACT_CW_KEY && evs[0].gesture == GESTURE_DOWN &&
+		      evs[1].action == ACT_CW_KEY && evs[1].gesture == GESTURE_UP);
+	}
+	input_event_t down = { .action = ACT_CW_KEY, .gesture = GESTURE_DOWN };
+	input_event_t up = { .action = ACT_CW_KEY, .gesture = GESTURE_UP };
+	input_forward(&down, true);
+	input_forward(&up, true);
+	CHECK(cwkey_downs == 0 && cwkey_ups == 1);
+	input_forward(&down, false);
+	input_forward(&up, false);
+	CHECK(cwkey_downs == 1 && cwkey_ups == 2);
+	CHECK(!keyassign_home_allowed(KEYFN_CW_KEY, false));
+#else
+	CHECK(!keyassign_allowed(KEYFN_CW_KEY, false));
+#endif
+}
+
 static void test_burst_lock(void)
 {
 	input_event_t down = { .action = ACT_TONE_BURST, .gesture = GESTURE_DOWN };
@@ -416,6 +456,7 @@ int main(void)
 	test_engine();
 	test_burst_edges();
 	test_burst_lock();
+	test_cw_key();
 	test_board_defaults();
 	test_home_keys();
 	printf("# keyassignTest: %d checks, %s\n", checks, failures ? "FAILED" : "PASSED");

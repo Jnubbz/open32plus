@@ -11,6 +11,7 @@
 #include "radio/scan.h"
 #include "radio/battery.h"
 #include "radio/morse.h"
+#include "radio/cw_hand.h"
 #include "radio/radio_cwid.h"
 #include "radio/beep.h"	// beep_seg_t
 #include "radio/sigtone.h"	// SIG_STEPS
@@ -201,6 +202,7 @@ typedef enum {
 	RREQ_NXDN_SET,		// radio_task.c: the pending NXDN settings were copied (radio_nxdn_set_settings); applied here
 	RREQ_CW_SEND,		// key the CW message handed over (radio_cwmsg_put, CONFIG_CW_SEND)
 	RREQ_CW_STOP,		// stop the CW message being keyed
+	RREQ_CW_KEY,		// a straight key's edge (CONFIG_CW_SEND): arg 1 down, 0 up; arg2 its time in ms
 	// New request types go above
 
 	RREQ_COUNT		// KEEP LAST: sizes req_flags[] (radio_sm.c)
@@ -446,6 +448,12 @@ typedef struct {
 	bool cw_sfr;			// the SFR repeater's ID (CONFIG_SFR_CWID), not the hotspot's
 	bool cw_msg;			// a CW message (CONFIG_CW_SEND), not an ID
 	bool cw_audio;			// ... keyed through board.afsk's tone path, not board.radio->tx_tone
+#if CONFIG_CW_SEND
+	// A straight key (morse.md 8): a CW message (cw_msg set too) keyed from the side key's edges, not from text
+	bool cw_hand;
+	cw_hand_t hand;
+	uint16_t hand_lead_ms, hand_hang_ms;
+#endif
 #endif
 #if CONFIG_DMR
 	uint8_t dmr_wake_admits;	// the stack's wake_admits at the last tick (the permit tone for a short press)

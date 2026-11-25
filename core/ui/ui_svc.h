@@ -489,6 +489,7 @@ typedef enum {
 	// speed in wpm (0 off), the tone in Hz (settings_t.cw_wpm / cw_eff_wpm / cw_tone_hz; stored 0 reads as the default)
 	UI_SET_CW_WPM, UI_SET_CW_EFF_WPM, UI_SET_CW_TONE_HZ,
 	UI_SET_CW_LEAD_MS,	// CW messages' lead-in in ms, MORSE_LEAD_MS_STEP steps (settings_t.cw_lead; stored 0 reads 600)
+	UI_SET_CW_HANG_MS,	// a straight key's hang in ms, MORSE_HANG_MS_STEP steps (settings_t.cw_hang; stored 0 reads 1000)
 	UI_SET_COUNT
 } ui_setting_t;
 

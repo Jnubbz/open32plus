@@ -66,7 +66,9 @@
 #endif
 #if CONFIG_CW_SEND
 #include "radio/radio_cwmsg.h"	// the CW message handover (docs/spec/morse.md 5)
-#include "radio/radio_cwdec.h"	// the CW decoder (docs/spec/morse.md 7)
+#endif
+#if CONFIG_CW_DECODE
+#include "radio/radio_cwdec.h"	// the CW decoder (docs/spec/morse.md 7): on with APRS_RX, CW_SEND or not
 #endif
 #if CONFIG_SFR_CWID
 static void cw_cancel(radio_sm_t *sm);
@@ -7222,7 +7224,7 @@ static void hotspot_follow_power(radio_sm_t *sm)
 // battery save and subtone decoder open on the carrier. 150 ms lost a message's first letter on the air, and 600 ms
 // still did with a receiver's battery save on (morse.md 5.2)
 #define CW_TAIL_MS		150	// and after the last
-enum { CW_OFF = 0, CW_KEYING, CW_TAIL };
+enum { CW_OFF = 0, CW_KEYING, CW_TAIL, CW_HAND };	// CW_HAND: a straight key (morse.md 8)
 #if CONFIG_CW_SEND
 // A message's tone level through the audio path (hal_afsk_t level, 50 = about 3 kHz peak): near the HR_C7000 tone
 // generator's 1.1 kHz at 12.5 kHz and 1.5 kHz at 25 kHz that the CW IDs use. Unmeasured on the air
@@ -7258,6 +7260,12 @@ static void cw_ended(radio_sm_t *sm, uint8_t why, uint32_t ms)
 	bool sent = why == CW_END_SENT;
 	(void)sent;
 #if CONFIG_CW_SEND
+	if (sm->cw_hand) {
+		sm->cw_hand = sm->cw_msg = false;	// no message outcome: nothing was handed over
+		sm->view.cw_tx = false;
+		changed(sm);
+		return;
+	}
 	if (sm->cw_msg) {
 		sm->cw_msg = false;
 		sm->view.cw_tx = false;
@@ -7370,6 +7378,15 @@ static uint32_t cw_msg_lead(void)
 	settings_read(st);
 	uint32_t ms = (uint32_t)st->cw_lead * MORSE_LEAD_MS_STEP;
 	return ms >= MORSE_LEAD_MS_MIN && ms <= MORSE_LEAD_MS_MAX ? ms : MORSE_LEAD_MS_DEFAULT;
+}
+
+// A straight key's hang from the settings (0 or out of range: the default)
+static uint32_t cw_hand_hang(void)
+{
+	settings_t *st = &st_copy;
+	settings_read(st);
+	uint32_t ms = (uint32_t)st->cw_hang * MORSE_HANG_MS_STEP;
+	return ms >= MORSE_HANG_MS_MIN && ms <= MORSE_HANG_MS_MAX ? ms : MORSE_HANG_MS_DEFAULT;
 }
 #endif
 
@@ -7602,6 +7619,49 @@ static void cwmsg_cut(radio_sm_t *sm, uint32_t now_ms)
 		cw_finish(sm, CW_END_CUT, 0, now_ms);
 	}
 }
+
+// RREQ_CW_KEY: a straight key's edge (morse.md 8). The first press keys the FM channel as a CW message does, with the
+// same checks, and the keying follows the side key a lead-in late (cw_hand.c). A refused press beeps; its release and
+// anything while a message is keyed are ignored
+static void cwhand_key(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
+{
+	bool down = req->arg != 0;
+	if (sm->cw_hand) {
+		if (!cw_hand_edge(&sm->hand, down, req->arg2)) {
+			cwmsg_cut(sm, now_ms);	// keyed faster than the lead-in can hold: stop rather than garble
+		}
+		return;
+	}
+	if (!down || sm->cw_msg) {
+		return;
+	}
+	const channel_t *ch = &sm->view.ch;
+	if (ch->mode != RADIO_MODE_FM || !cwmsg_idle(sm) || tx_check(sm) != TXDENY_NONE || tx_held(sm) || ch->rx_only ||
+	    (board.radio->tx_tone == NULL && !cw_audio_path())) {
+		beep(sm, BEEP_ERROR);
+		return;
+	}
+	(void)cw_speed(sm, NULL);	// the tone
+	sm->hand_lead_ms = (uint16_t)cw_msg_lead();
+	sm->hand_hang_ms = (uint16_t)cw_hand_hang();
+	sm->cw_msg = sm->cw_hand = true;
+	sm->view.cw_tx = true;
+	sm->view.state = RS_TX;
+	sm->view.tx_auto = false;	// the user keys it, as with PTT
+	sm->view.last_tx_ms = now_ms != 0 ? now_ms : 1;
+	sm->view.tx_deny = TXDENY_NONE;
+	sm->view.tx_elapsed_ms = 0;
+	sm->tx_start_ms = now_ms;
+	sm->tot_warned = false;
+	sm->view.tot_warning = false;
+	ptt_stops_tx(true);
+	if (cw_begin(sm, ch->tx_hz, (radio_bw_t)ch->bw, sm->view.power, &ch->tx_tone, "", 0, MORSE_WPM_DEFAULT, 0, 0,
+		     now_ms)) {
+		sm->cw_phase = CW_HAND;
+		cw_hand_start(&sm->hand, now_ms);
+		(void)cw_hand_edge(&sm->hand, true, req->arg2);
+	}
+}
 #endif
 
 // Every RADIO_TICK_MS
@@ -7616,6 +7676,17 @@ static void cw_service(radio_sm_t *sm, uint32_t now_ms)
 			sm->cw_phase = CW_TAIL;
 			sm->cw_ms = now_ms;
 		}
+#if CONFIG_CW_SEND
+	} else if (sm->cw_phase == CW_HAND) {
+		bool done;
+		bool key = cw_hand_poll(&sm->hand, now_ms, sm->hand_lead_ms, sm->hand_hang_ms, &done);
+		if (key != sm->cw_key) {
+			cw_key(sm, key);
+		}
+		if (done) {
+			cw_finish(sm, CW_END_SENT, now_ms - sm->cw_start_ms, now_ms);
+		}
+#endif
 	} else if (sm->cw_phase == CW_TAIL && (now_ms - sm->cw_ms) >= CW_TAIL_MS) {
 		cw_finish(sm, CW_END_SENT, now_ms - sm->cw_start_ms, now_ms);
 	}
@@ -9387,6 +9458,7 @@ void radio_sm_request(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 #if CONFIG_CW_SEND
 	case RREQ_CW_SEND: cwmsg_start(sm, now_ms); break;
 	case RREQ_CW_STOP: cwmsg_cut(sm, now_ms); break;
+	case RREQ_CW_KEY: cwhand_key(sm, req, now_ms); break;
 #endif
 	case RREQ_MONITOR: monitor_request(sm, req, now_ms); break;
 	case RREQ_POWER: power_request(sm, req); break;
@@ -10071,6 +10143,10 @@ void radio_sm_poll(radio_sm_t *sm, uint32_t now_ms)
 			// carrier came up; the time-out here is only a backstop
 			tx_timer(sm, now_ms);
 			if (sm->view.tot_s != 0 && sm->view.tx_elapsed_ms >= (uint32_t)sm->view.tot_s * 1000) {
+				if (sm->cw_hand) {
+					beep(sm, BEEP_ERROR);	// a straight key has no length to check first: the time-out is
+								// its limit, as for PTT
+				}
 				cwmsg_cut(sm, now_ms);
 			}
 			return;

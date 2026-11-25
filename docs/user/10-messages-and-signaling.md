@@ -116,6 +116,21 @@ Speed, Farnsworth spacing and tone are in **Settings > CW** ([Settings](17-setti
 
 <img src="../ux/screens/160x120i5/cw_compose.png" width="200" alt="Messages > Send CW">
 
+### Sending CW with a key
+
+A side key can be a straight key: hold it and the tone goes out on the FM channel, let go and it stops.
+
+1. In **Settings > Keys**, set a side key's press to **Straight key**.
+2. Pick an FM channel and key Morse with the side key. The transmitter comes on with your first press.
+3. Your keying goes on the air **Lead-in** later (600 ms by default), with your own timing, so the other radio's
+   squelch is open before your first dot.
+4. The transmitter goes off once you have let go of the key for **Key hang** (1 s by default). Press PTT to stop at
+   once.
+
+It works only on an FM channel, like CW messages, and keys the channel's TX subtone too. The radio's speaker doesn't play
+your keying yet: listen on a second radio. Both times are in **Settings > CW** ([Settings](17-settings.md#cw)). The
+details are in [morse.md](../spec/morse.md) 8.
+
 ## Decoding CW
 
 **Messages > Decode CW** shows Morse heard on the FM channel as text. It decodes MCW, a keyed tone in FM, the way

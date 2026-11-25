@@ -13,6 +13,11 @@ void input_forward(const input_event_t *ev, bool ptt_blocked)
 			(ev->gesture == GESTURE_UP || (ev->gesture == GESTURE_DOWN && !ptt_blocked))) {
 		radio_req_tone_burst_key(ev->gesture == GESTURE_DOWN);
 #endif
+#if CONFIG_CW_SEND
+	} else if (ev->action == ACT_CW_KEY &&
+			(ev->gesture == GESTURE_UP || (ev->gesture == GESTURE_DOWN && !ptt_blocked))) {
+		radio_req_cw_key(ev->gesture == GESTURE_DOWN);
+#endif
 	} else if (ev->action == ACT_MONITOR && (ev->gesture == GESTURE_DOWN || ev->gesture == GESTURE_UP)) {
 		if (ev->gesture == GESTURE_UP && ev->value != 0) {
 			radio_req_monitor_held_up();	// its hold function ran: not a press (DMR doesn't toggle)

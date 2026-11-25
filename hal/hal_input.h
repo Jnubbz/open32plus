@@ -31,6 +31,7 @@ typedef enum {
 	// A home key with a function set (board.home_keys, keyassign.h): the UI turns it into that function on Home and
 	// back into the key's own action elsewhere. The gesture says press or long press
 	ACT_HOME_KEY_1, ACT_HOME_KEY_2, ACT_HOME_KEY_3, ACT_HOME_KEY_4,
+	ACT_CW_KEY,		// a straight key on a side key: raw down / up edges (CONFIG_CW_SEND, morse.md 8)
 	ACT_COUNT
 } input_action_t;
 
@@ -38,7 +39,7 @@ typedef enum {
 	GESTURE_PRESS,		// short, on release before the long-press threshold
 	GESTURE_LONG,		// once, at the threshold
 	GESTURE_REPEAT,		// navigation keys only, while held after LONG
-	GESTURE_DOWN,		// raw edges, for PTT and MONITOR (and ENC_STEP uses DOWN)
+	GESTURE_DOWN,		// raw edges, for PTT, MONITOR, TONE_BURST and CW_KEY (and ENC_STEP uses DOWN)
 	GESTURE_UP,
 } input_gesture_t;
 

@@ -3855,6 +3855,11 @@ msgid "Home zone"
 msgstr "主区域"
 
 #: core/ui/ui_menus.c
+msgctxt "KEYFN_VALUE_STRAIGHT_KEY"
+msgid "Straight key"
+msgstr "电键"
+
+#: core/ui/ui_menus.c
 msgctxt "KEYFN_VALUE_COPY_TO_VFO"
 msgid "Copy to VFO"
 msgstr "复制到 VFO"
@@ -4163,6 +4168,11 @@ msgstr "音调"
 msgctxt "SET_LABEL_CW_LEAD_IN"
 msgid "Lead-in"
 msgstr "前导时间"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_KEY_HANG"
+msgid "Key hang"
+msgstr "保持时间"
 
 #: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"
