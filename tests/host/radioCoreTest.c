@@ -4249,6 +4249,157 @@ static void test_cw_message(void)
 	st->cw_tone_hz = 0;
 	settings_end(now);
 }
+
+// ---- A straight key on a side key (morse.md 8): the first press keys the FM channel as a CW message does, the side
+// key's edges go on the air a lead-in later with their own timing, the carrier hangs after the last release ----
+
+static void cw_key_edge(bool down, uint32_t at)
+{
+	radio_req_t r = { RREQ_CW_KEY, down, at };
+	radio_sm_request(&sm, &r, now);
+}
+
+static void test_cw_straight_key(void)
+{
+	setup_codeplug();
+	start();
+	run(50);
+	radio_cwmsg_view_t v0, v;
+	radio_cwmsg_get(&v0);
+	memset(&tone, 0, sizeof(tone));
+	int tx0 = hw.tx_calls, off0 = hw.tx_off_calls;
+
+	// A dot (60 ms) and a dash (180 ms) on Simplex. The carrier comes up at the press, the tone 600 ms later (the
+	// lead-in), and the user's screen wakes: the user keyed it
+	uint32_t t0 = now;
+	cw_key_edge(true, now);
+	CHECK(sm.view.state == RS_TX && sm.view.cw_tx && !sm.view.tx_auto && sm.cw_hand && ptt_stop_only);
+	CHECK(hw.tx_calls == tx0 + 1 && hw.tx_hz == 146520000 && tone.hz == 800 && tone.changes == 0);
+	run(60);
+	cw_key_edge(false, now);
+	run(120);
+	cw_key_edge(true, now);
+	run(180);
+	cw_key_edge(false, now);
+	run(500);
+	CHECK(tone.changes == 3);			// the dot played, the dash down
+	run(300);
+	CHECK(tone.changes == 4 && tone.first_down_ms >= t0 + 600 && tone.first_down_ms <= t0 + 610);
+	CHECK(tone.down_ms >= 235 && tone.down_ms <= 245);	// 60 + 180: the operator's timing kept
+	CHECK(tone.last_up_ms - tone.first_down_ms >= 355 && tone.last_up_ms - tone.first_down_ms <= 365);
+	// The carrier hangs a second past the last release on the air, then the channel again. No message outcome
+	run(700);
+	CHECK(sm.view.state == RS_TX && hw.tx_off_calls == off0);
+	run(300);
+	CHECK(sm.view.state == RS_IDLE && !sm.view.cw_tx && !sm.cw_hand && !sm.cw_msg && sm.cw_phase == 0);
+	CHECK(hw.tx_off_calls == off0 + 1 && hw.rx_hz == 146520000 && !ptt_stop_only && tone.hz == 0);
+	radio_cwmsg_get(&v);
+	CHECK(v.sent == v0.sent && v.last == v0.last);
+
+	// The edges keep the time they happened, not when the radio task took them: a late request plays on time
+	memset(&tone, 0, sizeof(tone));
+	t0 = now;
+	cw_key_edge(true, now);
+	run(100);
+	run(40);
+	cw_key_edge(false, now - 40);			// released at 100 ms, taken at 140
+	run(1000);
+	CHECK(tone.changes == 2 && tone.down_ms >= 95 && tone.down_ms <= 105);
+	run(1000);
+	CHECK(sm.view.state == RS_IDLE);
+
+	// A press during the hang keeps the carrier: one transmission
+	tx0 = hw.tx_calls;
+	cw_key_edge(true, now);
+	run(50);
+	cw_key_edge(false, now);
+	run(1200);					// 600 lead + 50 + 550 into the hang
+	cw_key_edge(true, now);
+	run(50);
+	cw_key_edge(false, now);
+	run(1500);
+	CHECK(sm.view.state == RS_TX && hw.tx_calls == tx0 + 1);
+	run(500);
+	CHECK(sm.view.state == RS_IDLE && hw.tx_calls == tx0 + 1);
+
+	// The hang from the settings: 500 ms
+	settings_t *st = settings_begin();
+	st->cw_hang = 5;
+	settings_end(now);
+	cw_key_edge(true, now);
+	run(50);
+	cw_key_edge(false, now);
+	run(600 + 480);					// the release on the air 600 ms later, then 500 ms of hang
+	CHECK(sm.view.state == RS_TX);
+	run(40);
+	CHECK(sm.view.state == RS_IDLE);
+	st = settings_begin();
+	st->cw_hang = 0;
+	settings_end(now);
+
+	// PTT cuts it at once and keys nothing; so does a channel change
+	off0 = hw.tx_off_calls;
+	cw_key_edge(true, now);
+	run(300);
+	req(RREQ_PTT, 1);
+	CHECK(sm.view.state == RS_IDLE && tone.hz == 0 && hw.tx_off_calls == off0 + 1 && !sm.cw_hand);
+	req(RREQ_PTT, 0);
+	cw_key_edge(false, now);			// the release after the cut: nothing
+	CHECK(sm.view.state == RS_IDLE);
+	cw_key_edge(true, now);
+	run(100);
+	req(RREQ_CH_STEP, 1);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_hand && sm.view.channel_number == 2);
+	cw_key_edge(false, now);
+	req(RREQ_CH_STEP, -1);
+	run(100);
+
+	// A CW message can't start over it, and the key does nothing while a message is keyed
+	cw_key_edge(true, now);
+	cw_send("E");
+	CHECK(cw_last() == CWMSG_BUSY && sm.cw_hand);
+	cw_key_edge(false, now);
+	run(2000);
+	CHECK(sm.view.state == RS_IDLE);
+	cw_send("PARIS");
+	run(100);
+	cw_key_edge(true, now);
+	CHECK(!sm.cw_hand && sm.cw_msg);
+	cw_key_edge(false, now);
+	run(5000);
+	CHECK(cw_last() == CWMSG_SENT && sm.view.state == RS_IDLE);
+
+	// Refused on a channel that may not transmit or isn't FM: no carrier
+	tx0 = hw.tx_calls;
+	req(RREQ_ZONE_POS, 3);
+	run(100);
+	CHECK(sm.view.ch.mode == RADIO_MODE_DMR);
+	cw_key_edge(true, now);
+	CHECK(hw.tx_calls == tx0 && !sm.cw_hand && sm.view.state != RS_TX);
+	cw_key_edge(false, now);
+	req(RREQ_ZONE_POS, 0);
+	run(100);
+	radio_settings_t set = sm.set;
+	set.tx_inhibit = true;
+	radio_sm_set_settings(&sm, &set, now);
+	cw_key_edge(true, now);
+	CHECK(hw.tx_calls == tx0 && !sm.cw_hand);
+	cw_key_edge(false, now);
+	set.tx_inhibit = false;
+
+	// Held down: the time-out ends it, as it ends PTT
+	set.tot_s = 2;
+	radio_sm_set_settings(&sm, &set, now);
+	cw_key_edge(true, now);
+	run(1900);
+	CHECK(sm.view.state == RS_TX && sm.cw_hand);
+	run(200);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_hand && tone.hz == 0);
+	cw_key_edge(false, now);
+	CHECK(sm.view.state == RS_IDLE);
+	set.tot_s = 180;
+	radio_sm_set_settings(&sm, &set, now);
+}
 #endif
 
 // The UI's on-the-fly DMR changes (temporary timeslot, color code and mode), hear all latched, the one-shot talk
@@ -12113,6 +12264,7 @@ int main(void)
 	test_hotspot_cwid();
 #if CONFIG_CW_SEND
 	test_cw_message();
+	test_cw_straight_key();
 #endif
 #if CONFIG_SFR
 	test_sfr_roles();

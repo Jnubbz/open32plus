@@ -258,7 +258,9 @@ typedef struct {
 	// CW messages' lead-in in 100 ms steps (morse.md 5.2), 0 = MORSE_LEAD_MS_DEFAULT. Was reserved11[0]: an older
 	// record reads the default
 	uint8_t cw_lead;
-	uint8_t reserved11[1];		// 0
+	// A straight key's hang in 100 ms steps (morse.md 8), 0 = MORSE_HANG_MS_DEFAULT. Was reserved11's last byte: an older
+	// record reads the default
+	uint8_t cw_hang;
 	// DMR AES: the end of the MI positions reserved for our overs (dmrAesSeq_t, dmr-voice.md 5.1; appended: an older
 	// record reads 0, no position yet). A restart starts here, past every position sent
 	uint32_t aes_mi_res;

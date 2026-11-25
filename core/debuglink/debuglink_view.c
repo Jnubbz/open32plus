@@ -586,8 +586,8 @@ static void cw_section(const radio_view_t *v, dl_text_t *t)
 	dl_text(t, "cw.requests=%u\ncw.sent=%u\ncw.cut=%u\ncw.refused=%u\ncw.last_ms=%u\n", c.requests, c.sent, c.cut,
 		c.refused, (unsigned)c.last_ms);
 	// The settings as stored (0 = the default: 20 wpm, standard spacing, 800 Hz); one field at a time, no copy on the stack
-	dl_text(t, "cw.wpm=%u\ncw.eff_wpm=%u\ncw.tone_hz=%u\ncw.lead=%u\n", SETTINGS_FIELD(cw_wpm),
-		SETTINGS_FIELD(cw_eff_wpm), SETTINGS_FIELD(cw_tone_hz), SETTINGS_FIELD(cw_lead));
+	dl_text(t, "cw.wpm=%u\ncw.eff_wpm=%u\ncw.tone_hz=%u\ncw.lead=%u\ncw.hang=%u\n", SETTINGS_FIELD(cw_wpm),
+		SETTINGS_FIELD(cw_eff_wpm), SETTINGS_FIELD(cw_tone_hz), SETTINGS_FIELD(cw_lead), SETTINGS_FIELD(cw_hang));
 #else
 	(void)v;
 	dl_text(t, "cw.built=0\n");

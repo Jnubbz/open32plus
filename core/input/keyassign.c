@@ -6,7 +6,8 @@
 #include <string.h>
 #include "input/keyassign.h"
 
-// The input action each function sends (Monitor and Tone burst as raw edges, the rest as a press or long press)
+// The input action each function sends (Monitor, Tone burst and Straight key as raw edges, the rest as a press or long
+// press)
 static const uint8_t fn_action[KEYFN_COUNT] = {
 	[KEYFN_DEFAULT] = ACT_NONE, [KEYFN_NONE] = ACT_NONE, [KEYFN_MONITOR] = ACT_MONITOR,
 	[KEYFN_TALK_TARGET] = ACT_TALK_TARGET, [KEYFN_POWER] = ACT_POWER, [KEYFN_ZONE_UP] = ACT_ZONE_UP,
@@ -20,6 +21,9 @@ static const uint8_t fn_action[KEYFN_COUNT] = {
 	[KEYFN_VFO_TOGGLE] = ACT_VFO_TOGGLE,
 	[KEYFN_TALK_LABEL] = ACT_TALK_LABEL, [KEYFN_SCAN_SKIP] = ACT_SCAN_SKIP,
 	[KEYFN_MONITOR_TOGGLE] = ACT_MONITOR_TOGGLE,
+#if CONFIG_CW_SEND
+	[KEYFN_CW_KEY] = ACT_CW_KEY,
+#endif
 };
 
 bool keyassign_allowed(uint8_t fn, bool hold)
@@ -35,15 +39,21 @@ bool keyassign_allowed(uint8_t fn, bool hold)
 		return false;
 	}
 #endif
-	return hold ? fn != KEYFN_MONITOR && fn != KEYFN_TONE_BURST : fn != KEYFN_EMERGENCY;
+#if !CONFIG_CW_SEND
+	if (fn == KEYFN_CW_KEY) {
+		return false;
+	}
+#endif
+	return hold ? fn != KEYFN_MONITOR && fn != KEYFN_TONE_BURST && fn != KEYFN_CW_KEY : fn != KEYFN_EMERGENCY;
 }
 
 bool keyassign_home_allowed(uint8_t fn, bool hold)
 {
-	// Monitor and Tone burst need the key held down. Emergency needs the 1.5 s hold-to-activate, which the input
+	// Monitor, Tone burst and Straight key need the key held down. Emergency needs the 1.5 s hold-to-activate, which the input
 	// engine gives only a key whose long action is Emergency; a home key's long action is its home key action, so its
 	// hold would fire at the ordinary long press and set off accidental emergencies
-	return keyassign_allowed(fn, hold) && fn != KEYFN_MONITOR && fn != KEYFN_TONE_BURST && fn != KEYFN_EMERGENCY;
+	return keyassign_allowed(fn, hold) && fn != KEYFN_MONITOR && fn != KEYFN_TONE_BURST && fn != KEYFN_CW_KEY &&
+	       fn != KEYFN_EMERGENCY;
 }
 
 uint8_t keyassign_action(uint8_t fn)
@@ -103,6 +113,14 @@ void keyassign_build(const keymap_entry_t *base, uint8_t base_len, const uint8_t
 #if CONFIG_FM_TX_TONES
 			if (press == KEYFN_TONE_BURST) {
 				m->short_action = m->long_action = ACT_TONE_BURST;
+				m->raw_edges = true;
+				m->repeat = false;
+				break;
+			}
+#endif
+#if CONFIG_CW_SEND
+			if (press == KEYFN_CW_KEY) {
+				m->short_action = m->long_action = ACT_CW_KEY;	// held as long as the key is: no long press
 				m->raw_edges = true;
 				m->repeat = false;
 				break;

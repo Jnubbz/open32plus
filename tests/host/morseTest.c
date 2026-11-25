@@ -9,6 +9,7 @@
 #include "radio/morse.h"
 #include "radio/radio_cwmsg.h"
 #include "radio/morse_decode.h"
+#include "radio/cw_hand.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -357,6 +358,58 @@ static void test_decode(void)
 	if (strlen(out) > 2) printf("  got \"%s\"\n", out);
 }
 
+
+// ---- The straight key (cw_hand.c, morse.md 8): edges played a lead-in later, the carrier held through the gaps ----
+
+static void test_hand(void)
+{
+	cw_hand_t h;
+	bool done;
+	const uint32_t lead = 600, hang = 1000;
+	cw_hand_start(&h, 1000);
+	// a dot pressed at 1100 for 60 ms, a dash at 1220 for 180 ms; a bouncing repeat changes nothing
+	CHECK(cw_hand_edge(&h, true, 1100) && cw_hand_edge(&h, true, 1105) && cw_hand_edge(&h, false, 1160));
+	CHECK(cw_hand_edge(&h, true, 1220) && cw_hand_edge(&h, false, 1400));
+	// silent carrier through the lead-in, while the key is long released: not done
+	CHECK(!cw_hand_poll(&h, 1650, lead, hang, &done) && !done);
+	// each element at its own time plus the lead-in, its length kept to the millisecond
+	CHECK(!cw_hand_poll(&h, 1699, lead, hang, &done));
+	CHECK(cw_hand_poll(&h, 1700, lead, hang, &done));
+	CHECK(cw_hand_poll(&h, 1759, lead, hang, &done));
+	CHECK(!cw_hand_poll(&h, 1760, lead, hang, &done) && !done);
+	CHECK(cw_hand_poll(&h, 1820, lead, hang, &done) && cw_hand_poll(&h, 1999, lead, hang, &done));
+	CHECK(!cw_hand_poll(&h, 2000, lead, hang, &done) && !done);
+	// the carrier hangs a second past the last release on the air, then the session is done
+	CHECK(!cw_hand_poll(&h, 2999, lead, hang, &done) && !done);
+	CHECK(!cw_hand_poll(&h, 3000, lead, hang, &done) && done);
+	// a press during the hang holds the carrier: not done while it is queued or held
+	cw_hand_start(&h, 0);
+	CHECK(cw_hand_edge(&h, true, 10) && cw_hand_edge(&h, false, 70));
+	CHECK(!cw_hand_poll(&h, 1600, lead, hang, &done) && !done);
+	CHECK(cw_hand_edge(&h, true, 1650));
+	CHECK(!cw_hand_poll(&h, 1700, lead, hang, &done) && !done);	// 1030 ms past the release, but a press is queued
+	CHECK(cw_hand_poll(&h, 2250, lead, hang, &done) && !done);
+	CHECK(cw_hand_edge(&h, false, 1700) && !cw_hand_poll(&h, 2300, lead, hang, &done) && !done);
+	CHECK(!cw_hand_poll(&h, 3299, lead, hang, &done) && !done && !cw_hand_poll(&h, 3300, lead, hang, &done) && done);
+	// held for ever: the air key stays down (the time-out cuts it, not the hang)
+	cw_hand_start(&h, 0);
+	CHECK(cw_hand_edge(&h, true, 0));
+	CHECK(cw_hand_poll(&h, 60000, lead, hang, &done) && !done);
+	// a full queue refuses the edge
+	cw_hand_start(&h, 0);
+	bool ok = true;
+	for (uint32_t i = 0; i < CW_HAND_EDGES; i++) {
+		ok = ok && cw_hand_edge(&h, (i & 1u) == 0, i * 10u);
+	}
+	CHECK(ok && !cw_hand_edge(&h, true, 1000));
+	// the clock wrapping in the middle keeps the timing
+	cw_hand_start(&h, 0xFFFFFF00u);
+	CHECK(cw_hand_edge(&h, true, 0xFFFFFF80u) && cw_hand_edge(&h, false, 0xFFFFFFE0u));
+	CHECK(cw_hand_poll(&h, 0xFFFFFF80u + lead, lead, hang, &done));
+	CHECK(!cw_hand_poll(&h, 0xFFFFFFE0u + lead, lead, hang, &done) && !done);
+	CHECK(!cw_hand_poll(&h, 0xFFFFFFE0u + lead + hang, lead, hang, &done) && done);
+}
+
 int main(void)
 {
 	test_duration();
@@ -366,6 +419,7 @@ int main(void)
 	test_farnsworth();
 	test_long_text();
 	test_decode();
+	test_hand();
 	if (failures != 0) {
 		printf("morseTest: %d failure(s)\n", failures);
 		return 1;
