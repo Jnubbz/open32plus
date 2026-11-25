@@ -27,6 +27,12 @@ static input_engine_t engine;
 // until no key is held, so a key never changes meaning between its press and its release
 static keymap_entry_t keymap_live[INPUT_KEYS_MAX], keymap_next[INPUT_KEYS_MAX];
 static volatile bool keymap_pending;
+#if CONFIG_CW_BUG
+// The bug's paddles (input_set_paddles): the map in use is keymap_base with OK and BACK made paddles
+static keymap_entry_t keymap_base[INPUT_KEYS_MAX];
+static volatile bool paddles_want;
+static bool paddles_on;
+#endif
 static QueueHandle_t events;
 static volatile uint32_t raw_keys;
 static volatile int32_t enc_total;
@@ -159,12 +165,28 @@ static void input_task(void *arg)
 			enc_carry = (int16_t)(steps > 0 ? steps - 127 : steps + 127);
 			steps = steps > 0 ? 127 : -127;
 		}
+#if CONFIG_CW_BUG
+		if ((keymap_pending || paddles_want != paddles_on) && engine.held == 0) {
+			taskENTER_CRITICAL();
+			if (keymap_pending) {
+				memcpy(keymap_base, keymap_next, sizeof(keymap_base));
+				keymap_pending = false;
+			}
+			memcpy(keymap_live, keymap_base, sizeof(keymap_live));
+			paddles_on = paddles_want;
+			if (paddles_on) {
+				input_paddle_map(keymap_live, engine.keymap_len);
+			}
+			taskEXIT_CRITICAL();
+		}
+#else
 		if (keymap_pending && engine.held == 0) {
 			taskENTER_CRITICAL();
 			memcpy(keymap_live, keymap_next, sizeof(keymap_live));
 			keymap_pending = false;
 			taskEXIT_CRITICAL();
 		}
+#endif
 		input_engine_step(&engine, keys | inj_keys, (int8_t)steps, now, emit, NULL);
 		vTaskDelayUntil(&wake, pdMS_TO_TICKS(INPUT_SCAN_MS));
 	}
@@ -176,6 +198,9 @@ void input_start(void)
 	configASSERT(events != NULL);
 	uint8_t n = board.keymap_len > INPUT_KEYS_MAX ? INPUT_KEYS_MAX : board.keymap_len;
 	memcpy(keymap_live, board.keymap, n * sizeof(keymap_live[0]));
+#if CONFIG_CW_BUG
+	memcpy(keymap_base, board.keymap, n * sizeof(keymap_base[0]));
+#endif
 	input_engine_init(&engine, keymap_live, n, hal_millis());
 	switch_follow_init(&sw_follow);
 #if CONFIG_DTMF
@@ -234,6 +259,13 @@ void input_set_keymap(const keymap_entry_t *map)
 	keymap_pending = true;
 	taskEXIT_CRITICAL();
 }
+
+#if CONFIG_CW_BUG
+void input_set_paddles(bool on)
+{
+	paddles_want = on;
+}
+#endif
 
 void input_set_ptt_block(bool blocked)
 {

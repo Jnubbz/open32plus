@@ -1760,6 +1760,11 @@ msgid "Not sent: nothing to key"
 msgstr "未发送：无可发送内容"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_ROW_KEY_BY_HAND"
+msgid "Key by hand"
+msgstr "按键发报"
+
+#: core/ui/ui_menus.c
 msgctxt "CW_WHY_NO_CALLSIGN"
 msgid "No callsign: set the radio name to it"
 msgstr "无呼号：电台名称应为呼号"
@@ -1810,14 +1815,34 @@ msgid "Back stop"
 msgstr "返回 停止"
 
 #: core/ui/ui_menus.c
-msgctxt "CWDEC_STATE_HEARING"
-msgid "Hearing"
-msgstr "正在接收"
-
-#: core/ui/ui_menus.c
 msgctxt "CWDEC_WHY_NOT_FM"
 msgid "Needs an FM channel"
 msgstr "仅限 FM 信道"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_STATE_ON_AIR"
+msgid "On air"
+msgstr "发射中"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_STATE_READY"
+msgid "Ready"
+msgstr "就绪"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_BODY"
+msgid "OK: dits  Back: dah"
+msgstr "OK 点  返回 长"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_HINT"
+msgid "Up/Down close"
+msgstr "上/下 关闭"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_STATE_HEARING"
+msgid "Hearing"
+msgstr "正在接收"
 
 #: core/ui/ui_menus.c
 msgctxt "CWDEC_WHY_BUSY"

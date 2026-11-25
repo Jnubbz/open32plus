@@ -1758,6 +1758,11 @@ msgid "Not sent: nothing to key"
 msgstr "Non envoyé : rien à manipuler"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_ROW_KEY_BY_HAND"
+msgid "Key by hand"
+msgstr "Manipuler à la main"
+
+#: core/ui/ui_menus.c
 msgctxt "CW_WHY_NO_CALLSIGN"
 msgid "No callsign: set the radio name to it"
 msgstr "Pas d'indicatif : mettez-le en nom radio"
@@ -1808,14 +1813,34 @@ msgid "Back stop"
 msgstr "Retour arrêter"
 
 #: core/ui/ui_menus.c
-msgctxt "CWDEC_STATE_HEARING"
-msgid "Hearing"
-msgstr "Réception"
-
-#: core/ui/ui_menus.c
 msgctxt "CWDEC_WHY_NOT_FM"
 msgid "Needs an FM channel"
 msgstr "Demande un canal FM"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_STATE_ON_AIR"
+msgid "On air"
+msgstr "En émission"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_STATE_READY"
+msgid "Ready"
+msgstr "Prêt"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_BODY"
+msgid "OK: dits  Back: dah"
+msgstr "OK : points  Retour : trait"
+
+#: core/ui/ui_menus.c
+msgctxt "CW_KEY_HINT"
+msgid "Up/Down close"
+msgstr "Haut/Bas fermer"
+
+#: core/ui/ui_menus.c
+msgctxt "CWDEC_STATE_HEARING"
+msgid "Hearing"
+msgstr "Réception"
 
 #: core/ui/ui_menus.c
 msgctxt "CWDEC_WHY_BUSY"

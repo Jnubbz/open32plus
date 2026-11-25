@@ -116,6 +116,19 @@ Speed, Farnsworth spacing and tone are in **Settings > CW** ([Settings](17-setti
 
 <img src="../ux/screens/160x120i5/cw_compose.png" width="200" alt="Messages > Send CW">
 
+### Keying with OK and Back
+
+**Send CW > Key by hand** turns the radio's **OK** and **Back** keys into a bug, a semi-automatic key:
+
+- Hold **OK** and the radio sends dits by itself at your **Speed** (Settings > CW) for as long as you hold it. A quick
+  tap sends one dit.
+- Hold **Back** for a dah. It lasts exactly as long as you hold it, as on a real bug.
+
+The first press turns the transmitter on. Your keying goes out **Lead-in** later, and the transmitter goes off once you
+have let go for **Key hang**, as with a straight key (below). The screen shows **Ready**, or **On air** while it
+transmits. Because Back is a paddle here, close the screen with **Up**, **Down** or **#**. PTT stops the keying at
+once. It works only on an FM channel. The details are in [morse.md](../spec/morse.md) 10.
+
 ### Sending CW with a key
 
 A side key can be a straight key: hold it and the tone goes out on the FM channel, let go and it stops.

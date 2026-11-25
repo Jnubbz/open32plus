@@ -104,6 +104,7 @@ WEAK bool ui_svc_call_alert(uint32_t id) { (void)id; return false; }
 WEAK uint8_t ui_svc_ars_state(void) { return UI_ARS_OFF; }
 WEAK bool ui_svc_cw_send(const char *text) { (void)text; return false; }
 WEAK void ui_svc_cw_stop(void) {}
+WEAK void ui_svc_cw_paddles(bool on) { (void)on; }
 WEAK void ui_svc_cw_get(ui_cw_t *out) { memset(out, 0, sizeof(*out)); }
 WEAK uint8_t ui_svc_cw_expand(const char *tmpl, char *out, uint8_t cap) { (void)tmpl; if (cap) out[0] = 0; return 0; }
 WEAK void ui_svc_cw_decode(bool on) { (void)on; }

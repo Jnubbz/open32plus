@@ -4400,6 +4400,81 @@ static void test_cw_straight_key(void)
 	set.tot_s = 180;
 	radio_sm_set_settings(&sm, &set, now);
 }
+
+#if CONFIG_CW_BUG
+// ---- The bug (morse.md 10): the dit paddle's dits at the keyer's speed, the dah by hand, on the air a lead-in late as
+// the straight key's keying ----
+
+static void paddle(bool dah, bool down, uint32_t at)
+{
+	radio_req_t r = { RREQ_CW_PADDLE, (down ? 1 : 0) | (dah ? 2 : 0), at };
+	radio_sm_request(&sm, &r, now);
+}
+
+static void test_cw_bug(void)
+{
+	setup_codeplug();
+	start();
+	run(50);
+	memset(&tone, 0, sizeof(tone));
+	int tx0 = hw.tx_calls, off0 = hw.tx_off_calls;
+
+	// 20 wpm (60 ms dots): the dit paddle held 250 ms makes three dits; then a 200 ms dah
+	uint32_t t0 = now;
+	paddle(false, true, now);
+	CHECK(sm.view.state == RS_TX && sm.cw_bug && sm.cw_hand && hw.tx_calls == tx0 + 1 && tone.changes == 0);
+	run(250);
+	paddle(false, false, now);
+	run(250);
+	paddle(true, true, now);
+	run(200);
+	paddle(true, false, now);
+	run(1000);
+	CHECK(tone.changes == 8 && tone.first_down_ms >= t0 + 600 && tone.first_down_ms <= t0 + 610);
+	CHECK(tone.down_ms >= 375 && tone.down_ms <= 385);	// 3 x 60 + 200
+	CHECK(tone.last_up_ms - tone.first_down_ms >= 695 && tone.last_up_ms - tone.first_down_ms <= 705);
+	// The hang, then the channel again
+	run(1000);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_bug && !sm.cw_hand && hw.tx_off_calls == off0 + 1 && tone.hz == 0);
+
+	// A held dit paddle keeps the carrier past the hang; PTT cuts it
+	paddle(false, true, now);
+	run(3000);
+	CHECK(sm.view.state == RS_TX && sm.cw_bug);
+	req(RREQ_PTT, 1);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_bug && tone.hz == 0);
+	req(RREQ_PTT, 0);
+	paddle(false, false, now);
+	run(100);
+	CHECK(sm.view.state == RS_IDLE);
+
+	// The straight key does nothing while the bug keys, and the paddles nothing while a message does
+	paddle(true, true, now);
+	cw_key_edge(true, now);
+	CHECK(sm.cw_bug && !sm.view.monitor);
+	cw_key_edge(false, now);
+	paddle(true, false, now);
+	run(3000);
+	CHECK(sm.view.state == RS_IDLE);
+	cw_send("E");
+	run(100);
+	paddle(false, true, now);
+	CHECK(!sm.cw_bug && sm.cw_msg);
+	paddle(false, false, now);
+	run(3000);
+	CHECK(sm.view.state == RS_IDLE);
+
+	// Refused on a DMR channel
+	tx0 = hw.tx_calls;
+	req(RREQ_ZONE_POS, 3);
+	run(100);
+	paddle(false, true, now);
+	CHECK(hw.tx_calls == tx0 && !sm.cw_bug);
+	paddle(false, false, now);
+	req(RREQ_ZONE_POS, 0);
+	run(100);
+}
+#endif
 #endif
 
 // The UI's on-the-fly DMR changes (temporary timeslot, color code and mode), hear all latched, the one-shot talk
@@ -4660,6 +4735,8 @@ static bool ptt_blocked;
 void input_set_ptt_block(bool b) { ptt_blocked = b; }
 static bool dtmf_blocked;
 void input_set_dtmf_block(bool b) { dtmf_blocked = b; }
+static bool paddles_on;
+void input_set_paddles(bool on) { paddles_on = on; }
 static keymap_entry_t got_keymap[4];
 static int keymap_sets;
 void input_set_keymap(const keymap_entry_t *map) { memcpy(got_keymap, map, sizeof(got_keymap)); keymap_sets++; }
@@ -12265,6 +12342,9 @@ int main(void)
 #if CONFIG_CW_SEND
 	test_cw_message();
 	test_cw_straight_key();
+#if CONFIG_CW_BUG
+	test_cw_bug();
+#endif
 #endif
 #if CONFIG_SFR
 	test_sfr_roles();

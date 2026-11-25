@@ -125,7 +125,7 @@ a full queue frees it again.
 
 `tests/host/morseTest.c`: punctuation, prosigns, Farnsworth gaps and keyed timelines, and a 160 character buffer.
 `tests/host/mmdvmTest.c`: PARIS at 20 wpm, the code table and keying over time for the CW ID. CW messages: 5.4.
-The decoder: 7.5. The straight key: 8.3. The QSO helper: 9.3.
+The decoder: 7.5. The straight key: 8.3. The QSO helper: 9.3. The bug: 10.3.
 
 ## 7. Decoding CW (`CONFIG_CW_DECODE`)
 
@@ -280,4 +280,42 @@ radio's own callsign as in CW messages (a line is dimmed and refused without one
 
 Still to come: exchange lines edited in Settings, `{RST}`, `{STATE}` and a park or summit `{REF}`, and a log of the
 contacts with ADIF export.
+
+## 10. A bug on OK and Back (`CONFIG_CW_BUG`)
+
+A semi-automatic key: one paddle sends dits by itself at the keyer's speed, the other keys by hand. Send CW > Key by
+hand (`cw-key`, the row before Write...) turns the radio's OK and Back keys into those paddles while it is open. The
+keying is the straight key's (section 8): the same session, delay line, hang and rules.
+
+### 10.1 What the user does
+
+| Step | Behavior |
+|---|---|
+| Open | Send CW > Key by hand. The status row says Ready, On air, or Needs an FM channel |
+| Dits | Hold OK: dits at Settings > CW > Speed (dot = 1200 / wpm ms), each dit and its space whole. A tap makes one dit. Released, the dit in progress and its space finish; the next starts only if OK is still held |
+| Dah | Hold Back: the key is down for exactly as long as it is held. With both held the dah holds the key down through the dits |
+| Close | Up, Down or # (a turn of the knob too): Back is a paddle here. * is still Quick settings. Closing turns the paddles off; a transmission still hanging ends by itself |
+| Stop | PTT, a retune or the monitor cut the keying at once, as with the straight key |
+
+Speed is the only keyer setting the bug uses: Farnsworth plays no part (the spacing is the operator's).
+
+### 10.2 How it works
+
+| Part | Behavior | Why |
+|---|---|---|
+| Paddles (`input_paddle_map`) | While the screen is open (`ui_svc_cw_paddles` → `input_set_paddles`), the key map's OK and BACK keys send `ACT_CW_DIT` and `ACT_CW_DAH` raw edges, no long press or repeat. The input task changes the map only while no key is held, as for `input_set_keymap` | The board's keys, whatever their names; the OK press that opened the screen ends as an OK |
+| Edges | `input_forward` posts each edge with `hal_millis()` (`RREQ_CW_PADDLE`). The first press starts a session (`cwhand_begin`, the straight key's checks) | As the straight key: the time the edge happened travels with it |
+| Keyer (`core/radio/cw_bug.c`) | Run each tick to 50 ms before now, a millisecond at a time: the paddles as their queued edges say, dits from the dit paddle's press in steps of two dots, the key = dah or a dit on. Each change goes to `cw_hand` at its own millisecond | The 50 ms lets an edge reach the queue before the keyer passes its time; the lead-in (300 ms or more) covers it. The timing comes from the edges, not from when the task ran |
+| End | The session ends once the paddles are up, no dit runs and the straight key's hang has passed | |
+
+### 10.3 Size, switches and tests
+
+| Item | Detail |
+|---|---|
+| Switch | `CONFIG_CW_BUG`, = `CW_SEND`; [feature-matrix.md](../feature-matrix.md) has the flash figure |
+| RAM | About 60 bytes in `radio_sm_t` (`cw_bug_t`), and a second copy of the key map in the input task (6 bytes a key) |
+| `morseTest` | Three dits from a 250 ms hold at 20 wpm, one whole dit from a tap, the dah's length, a late edge, both paddles, idle, a full queue |
+| `keyassignTest` | `input_paddle_map` (OK and Back only, raw edges) and the paddles' edges reaching the radio task, a press not while PTT is locked out |
+| `radioCoreTest` | Dits and a dah on the air a lead-in late with their timing, the hang, a held paddle past it, PTT cutting it, the straight key and a message each locked out during the other, a DMR channel refused |
+| `uiFlowTest` | The row, `cw-key`, Back staying, Up and # closing |
 

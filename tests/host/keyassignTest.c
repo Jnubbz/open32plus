@@ -15,6 +15,8 @@ void radio_req_monitor(bool down) { (void)down; }
 void radio_req_monitor_held_up(void) {}
 void radio_req_tone_burst_key(bool down) { if (down) burst_downs++; else burst_ups++; }
 void radio_req_cw_key(bool down) { if (down) cwkey_downs++; else cwkey_ups++; }
+static unsigned dit_edges, dah_edges;
+void radio_req_cw_paddle(bool dah, bool down) { (void)down; if (dah) dah_edges++; else dit_edges++; }
 
 static int failures;
 static int checks;
@@ -332,6 +334,30 @@ static void test_cw_key(void)
 #endif
 }
 
+// The bug's paddles (input_paddle_map, morse.md 10): OK and Back become the dit and dah paddles with raw edges, the
+// rest untouched; their edges reach the radio task
+static void test_paddles(void)
+{
+	keymap_entry_t m[N];
+	memcpy(m, base, sizeof m);
+	input_paddle_map(m, N);
+	CHECK(m[0].short_action == ACT_CW_DIT && m[0].long_action == ACT_CW_DIT && m[0].raw_edges && !m[0].repeat);
+	CHECK(m[1].short_action == ACT_MONITOR && m[3].short_action == ACT_USER_3 && m[4].short_action == ACT_PTT);
+	keymap_entry_t b[2] = { { 7, ACT_BACK, ACT_BACK, false, true, 0 }, { 8, ACT_NAV_UP, ACT_NAV_UP, false, true, 0 } };
+	input_paddle_map(b, 2);
+	CHECK(b[0].short_action == ACT_CW_DAH && b[0].raw_edges && !b[0].repeat && b[1].short_action == ACT_NAV_UP);
+#if CONFIG_CW_BUG
+	input_event_t ev = { .action = ACT_CW_DIT, .gesture = GESTURE_DOWN };
+	input_forward(&ev, true);	// PTT locked out: no press
+	ev.gesture = GESTURE_UP;
+	input_forward(&ev, true);
+	ev.action = ACT_CW_DAH;
+	ev.gesture = GESTURE_DOWN;
+	input_forward(&ev, false);
+	CHECK(dit_edges == 1 && dah_edges == 1);
+#endif
+}
+
 static void test_burst_lock(void)
 {
 	input_event_t down = { .action = ACT_TONE_BURST, .gesture = GESTURE_DOWN };
@@ -457,6 +483,7 @@ int main(void)
 	test_burst_edges();
 	test_burst_lock();
 	test_cw_key();
+	test_paddles();
 	test_board_defaults();
 	test_home_keys();
 	printf("# keyassignTest: %d checks, %s\n", checks, failures ? "FAILED" : "PASSED");

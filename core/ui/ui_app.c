@@ -147,7 +147,7 @@ static void update_focus_target(void)
 		ui_svc_focus_target(0, false);
 }
 
-#if CONFIG_BACKLIGHT_TEST || CONFIG_SATELLITE_TLE || CONFIG_CW_DECODE
+#if CONFIG_BACKLIGHT_TEST || CONFIG_SATELLITE_TLE || CONFIG_CW_DECODE || CONFIG_CW_BUG
 // Screens from the top down to stack level `from` leave the stack: each runs its leave hook (the backlight tests give
 // the light back)
 static void left(uint8_t from)
@@ -2172,7 +2172,8 @@ void ui_app_key(const input_event_t *ev)
 		return;
 	if (ev->action == ACT_PTT)
 		ptt_held = ev->gesture == GESTURE_DOWN;	// PTT sends only DOWN and UP (raw edges)
-	if (ev->action == ACT_PTT || ev->action == ACT_MONITOR || ev->action == ACT_TONE_BURST || ev->action == ACT_CW_KEY)
+	if (ev->action == ACT_PTT || ev->action == ACT_MONITOR || ev->action == ACT_TONE_BURST || ev->action == ACT_CW_KEY ||
+	    ev->action == ACT_CW_DIT || ev->action == ACT_CW_DAH)
 		return;		// the input layer already sent these to the radio
 	// While PTT keys the radio the digit keys do nothing: no Find, channel entry or speed dial under the TX screen.
 	// On FM with DTMF the input task gives them (and * and #) to the radio core instead and they never get here

@@ -119,4 +119,8 @@ void input_engine_set_timing(input_engine_t *e, uint16_t long_ms, uint16_t repea
 void input_engine_set_dtmf(input_engine_t *e, input_dtmf_t cb, void *ctx);
 void input_engine_step(input_engine_t *e, uint32_t raw, int8_t enc, uint32_t now_ms, input_emit_t emit, void *ctx);
 
+// The bug's paddles (docs/spec/morse.md 10): the keys whose press is OK and BACK become the dit and dah paddles,
+// raw edges with no long press or repeat. Applied to the map in use while the Key CW screen is open
+void input_paddle_map(keymap_entry_t *map, uint8_t n);
+
 #endif

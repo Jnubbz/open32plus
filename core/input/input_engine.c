@@ -111,3 +111,16 @@ void input_engine_step(input_engine_t *e, uint32_t raw, int8_t enc, uint32_t now
 		send(emit, ctx, ACT_ENC_STEP, GESTURE_DOWN, enc);
 	}
 }
+
+void input_paddle_map(keymap_entry_t *map, uint8_t n)
+{
+	for (uint8_t i = 0; i < n; i++) {
+		keymap_entry_t *m = &map[i];
+		if (m->short_action == ACT_SELECT || m->short_action == ACT_BACK) {
+			m->short_action = m->long_action = m->short_action == ACT_SELECT ? ACT_CW_DIT : ACT_CW_DAH;
+			m->raw_edges = true;
+			m->repeat = false;
+			m->dtmf = 0;
+		}
+	}
+}

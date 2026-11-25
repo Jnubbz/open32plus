@@ -558,14 +558,24 @@ static void cw_send(const char *text)
 	ui_push(SCR_CW_SEND, 0);
 }
 
-static uint16_t cw_compose_count(void) { return CW_CANNED_N + 1u; }
+// Key by hand (the bug, CONFIG_CW_BUG) sits before Write..., which stays the last row
+#define CW_ROW_BUG	(CONFIG_CW_BUG ? CW_CANNED_N : 0xFFFFu)
+#define CW_ROW_WRITE	(CW_CANNED_N + (CONFIG_CW_BUG ? 1u : 0u))
+
+static uint16_t cw_compose_count(void) { return CW_ROW_WRITE + 1u; }
 
 static void cw_compose_item(uint16_t i, ui_item_t *it)
 {
-	if (i == CW_CANNED_N) {
+	if (i == CW_ROW_WRITE) {
 		str_copy(it->label, sizeof it->label, TR(MSG_ROW_WRITE, "Write..."));
 		return;
 	}
+#if CONFIG_CW_BUG
+	if (i == CW_ROW_BUG) {
+		str_copy(it->label, sizeof it->label, TR(CW_ROW_KEY_BY_HAND, "Key by hand"));
+		return;
+	}
+#endif
 	char text[48];
 	sbuf_t b;
 	sb_init(&b, it->label, sizeof it->label);
@@ -583,11 +593,17 @@ static void cw_compose_item(uint16_t i, ui_item_t *it)
 static void cw_compose_select(uint16_t i, bool hold)
 {
 	(void)hold;
-	if (i == CW_CANNED_N) {
+	if (i == CW_ROW_WRITE) {
 		cw_writing = true;
 		ui_text_open_message(false);
 		return;
 	}
+#if CONFIG_CW_BUG
+	if (i == CW_ROW_BUG) {
+		ui_push(SCR_CW_KEY, 0);
+		return;
+	}
+#endif
 	char text[48];
 	if (ui_svc_cw_expand(cw_canned[i], text, sizeof text) == 0) {
 		ui_toast(TR(CW_WHY_NO_CALLSIGN, "No callsign: set the radio name to it"));
@@ -647,6 +663,45 @@ static const ui_scr_def_t cw_send_screen = {
 	.hint = TRN(CW_HINT_SENDING, "Back stop"),
 	.count = cw_send_count, .item = cw_send_item, .body = cw_send_body, .key = cw_send_key,
 };
+
+#if CONFIG_CW_BUG
+// Key by hand (morse.md 10): while open, OK and Back are a bug's paddles. OK sends dits at Settings > CW > Speed for
+// as long as it is held, Back a dah as long as it is held; the keying goes on air as the straight key's does. Back is a
+// paddle here, so Up, Down and # (and a turn of the knob) close it; * is still Quick settings. PTT stops the keying
+static uint16_t cw_key_count(void) { return 1; }
+
+static void cw_key_item(uint16_t i, ui_item_t *it)
+{
+	(void)i;
+	const radio_view_t *v = ui_view();
+	bool fm = v->ch.mode == RADIO_MODE_FM;
+	str_copy(it->label, sizeof it->label, !fm ? TR(CWDEC_WHY_NOT_FM, "Needs an FM channel") :
+		 v->cw_tx ? TR(CW_KEY_STATE_ON_AIR, "On air") : TR(CW_KEY_STATE_READY, "Ready"));
+	if (!fm)
+		it->flags |= UI_ITEM_WARN;
+}
+
+static const char *cw_key_body(void) { return TR(CW_KEY_BODY, "OK: dits  Back: dah"); }
+
+static bool cw_key_key(const input_event_t *ev)
+{
+	bool close = ((ev->action == ACT_NAV_UP || ev->action == ACT_NAV_DOWN || ev->action == ACT_CONTEXT) &&
+		      ev->gesture == GESTURE_PRESS) || ev->action == ACT_ENC_STEP;
+	if (close)
+		ui_pop();
+	return close || ev->action == ACT_SELECT || ev->action == ACT_BACK;	// a press left from before the paddles
+}
+
+static void cw_key_enter(void) { ui_svc_cw_paddles(true); }
+static void cw_key_leave(void) { ui_svc_cw_paddles(false); }
+
+static const ui_scr_def_t cw_key_screen = {
+	.name = "cw-key", .flags = SF_LIST | SF_FIELD, .prefix = TRN(CW_ROW_KEY_BY_HAND, "Key by hand"),
+	.hint = TRN(CW_KEY_HINT, "Up/Down close"),
+	.count = cw_key_count, .item = cw_key_item, .body = cw_key_body, .key = cw_key_key,
+	.enter = cw_key_enter, .leave = cw_key_leave,
+};
+#endif
 #endif
 
 #if CONFIG_CW_DECODE
@@ -8639,6 +8694,9 @@ const ui_scr_def_t *const ui_scr[SCR_COUNT] = {
 	[SCR_MESSAGES] = &messages_screen, [SCR_MESSAGE] = &message_screen, [SCR_COMPOSE] = &compose_screen,
 #if CONFIG_CW_SEND
 	[SCR_CW_COMPOSE] = &cw_compose_screen, [SCR_CW_SEND] = &cw_send_screen,
+#endif
+#if CONFIG_CW_BUG
+	[SCR_CW_KEY] = &cw_key_screen,
 #endif
 #if CONFIG_CW_DECODE
 	[SCR_CW_DECODE] = &cw_decode_screen,

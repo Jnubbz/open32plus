@@ -103,6 +103,9 @@ static const struct { const char *name, *script; } gallery[] = {
 	{ "cw_compose", CONFIG_CW_DECODE ? "ok 2 up up ok" : "ok 2 up ok" },
 	{ "cw_send", CONFIG_CW_DECODE ? "ok 2 up up ok ok" : "ok 2 up ok ok" },	// a canned message keying
 	{ "settings_cw", "ok 7 up up up ok" },	// Settings > CW
+#if CONFIG_CW_BUG
+	{ "cw_key", CONFIG_CW_DECODE ? "ok 2 up up ok up up ok" : "ok 2 up ok up up ok" },	// Send CW > Key by hand
+#endif
 #endif
 #if CONFIG_CW_DECODE
 	{ "cw_decode", "ok 2 up ok" },		// Messages > Decode CW, hearing a station

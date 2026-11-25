@@ -7224,7 +7224,8 @@ static void hotspot_follow_power(radio_sm_t *sm)
 // battery save and subtone decoder open on the carrier. 150 ms lost a message's first letter on the air, and 600 ms
 // still did with a receiver's battery save on (morse.md 5.2)
 #define CW_TAIL_MS		150	// and after the last
-enum { CW_OFF = 0, CW_KEYING, CW_TAIL, CW_HAND };	// CW_HAND: a straight key (morse.md 8)
+enum { CW_OFF = 0, CW_KEYING, CW_TAIL, CW_HAND };	// CW_HAND: a straight key or the bug (morse.md 8, 10)
+#define CW_BUG_SLACK_MS		50	// the bug runs this far behind now: a paddle edge is in the queue by then
 #if CONFIG_CW_SEND
 // A message's tone level through the audio path (hal_afsk_t level, 50 = about 3 kHz peak): near the HR_C7000 tone
 // generator's 1.1 kHz at 12.5 kHz and 1.5 kHz at 25 kHz that the CW IDs use. Unmeasured on the air
@@ -7261,6 +7262,9 @@ static void cw_ended(radio_sm_t *sm, uint8_t why, uint32_t ms)
 	(void)sent;
 #if CONFIG_CW_SEND
 	if (sm->cw_hand) {
+#if CONFIG_CW_BUG
+		sm->cw_bug = false;
+#endif
 		sm->cw_hand = sm->cw_msg = false;	// no message outcome: nothing was handed over
 		sm->view.cw_tx = false;
 		changed(sm);
@@ -7620,28 +7624,22 @@ static void cwmsg_cut(radio_sm_t *sm, uint32_t now_ms)
 	}
 }
 
-// RREQ_CW_KEY: a straight key's edge (morse.md 8). The first press keys the FM channel as a CW message does, with the
-// same checks, and the keying follows the side key a lead-in late (cw_hand.c). A refused press beeps; its release and
-// anything while a message is keyed are ignored
-static void cwhand_key(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
+// A hand-keyed session (morse.md 8): keys the FM channel as a CW message does, with the same checks; the keying then
+// follows the edges a lead-in late (cw_hand.c). False, with a beep, when refused
+static bool cwhand_begin(radio_sm_t *sm, uint32_t now_ms)
 {
-	bool down = req->arg != 0;
-	if (sm->cw_hand) {
-		if (!cw_hand_edge(&sm->hand, down, req->arg2)) {
-			cwmsg_cut(sm, now_ms);	// keyed faster than the lead-in can hold: stop rather than garble
-		}
-		return;
-	}
-	if (!down || sm->cw_msg) {
-		return;
-	}
 	const channel_t *ch = &sm->view.ch;
 	if (ch->mode != RADIO_MODE_FM || !cwmsg_idle(sm) || tx_check(sm) != TXDENY_NONE || tx_held(sm) || ch->rx_only ||
 	    (board.radio->tx_tone == NULL && !cw_audio_path())) {
 		beep(sm, BEEP_ERROR);
-		return;
+		return false;
 	}
-	(void)cw_speed(sm, NULL);	// the tone
+	uint8_t wpm = cw_speed(sm, NULL);	// the tone, and the bug's dots
+#if CONFIG_CW_BUG
+	sm->bug_dot_ms = (uint16_t)(1200u / wpm);
+#else
+	(void)wpm;
+#endif
 	sm->hand_lead_ms = (uint16_t)cw_msg_lead();
 	sm->hand_hang_ms = (uint16_t)cw_hand_hang();
 	sm->cw_msg = sm->cw_hand = true;
@@ -7655,13 +7653,54 @@ static void cwhand_key(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 	sm->tot_warned = false;
 	sm->view.tot_warning = false;
 	ptt_stops_tx(true);
-	if (cw_begin(sm, ch->tx_hz, (radio_bw_t)ch->bw, sm->view.power, &ch->tx_tone, "", 0, MORSE_WPM_DEFAULT, 0, 0,
-		     now_ms)) {
-		sm->cw_phase = CW_HAND;
-		cw_hand_start(&sm->hand, now_ms);
+	if (!cw_begin(sm, ch->tx_hz, (radio_bw_t)ch->bw, sm->view.power, &ch->tx_tone, "", 0, MORSE_WPM_DEFAULT, 0, 0,
+		      now_ms)) {
+		return false;
+	}
+	sm->cw_phase = CW_HAND;
+	cw_hand_start(&sm->hand, now_ms);
+	return true;
+}
+
+// RREQ_CW_KEY: a straight key's edge. The first press starts a session; a refused press beeps; its release and
+// anything while a message (or the bug) keys are ignored
+static void cwhand_key(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
+{
+	bool down = req->arg != 0;
+#if CONFIG_CW_BUG
+	if (sm->cw_bug) {
+		return;
+	}
+#endif
+	if (sm->cw_hand) {
+		if (!cw_hand_edge(&sm->hand, down, req->arg2)) {
+			cwmsg_cut(sm, now_ms);	// keyed faster than the lead-in can hold: stop rather than garble
+		}
+		return;
+	}
+	if (down && !sm->cw_msg && cwhand_begin(sm, now_ms)) {
 		(void)cw_hand_edge(&sm->hand, true, req->arg2);
 	}
 }
+
+#if CONFIG_CW_BUG
+// RREQ_CW_PADDLE: a bug paddle's edge (morse.md 10). The first press starts a session as the straight key's does; the
+// edges go to the bug, which makes the key's edges as the radio core runs it (cw_service)
+static void cwbug_paddle(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
+{
+	bool down = (req->arg & 1) != 0, dah = (req->arg & 2) != 0;
+	if (!sm->cw_bug) {
+		if (!down || sm->cw_msg || !cwhand_begin(sm, now_ms)) {
+			return;
+		}
+		sm->cw_bug = true;
+		cw_bug_start(&sm->bug, req->arg2);
+	}
+	if (!cw_bug_edge(&sm->bug, dah, down, req->arg2)) {
+		cwmsg_cut(sm, now_ms);
+	}
+}
+#endif
 #endif
 
 // Every RADIO_TICK_MS
@@ -7678,8 +7717,19 @@ static void cw_service(radio_sm_t *sm, uint32_t now_ms)
 		}
 #if CONFIG_CW_SEND
 	} else if (sm->cw_phase == CW_HAND) {
+#if CONFIG_CW_BUG
+		// The bug runs a little behind: a paddle's edge reaches the radio task after it happened, and it must be in
+		// the queue before the bug passes its time. The lead-in is far longer
+		if (sm->cw_bug && !cw_bug_run(&sm->bug, now_ms - CW_BUG_SLACK_MS, sm->bug_dot_ms, &sm->hand)) {
+			cwmsg_cut(sm, now_ms);
+			return;
+		}
+#endif
 		bool done;
 		bool key = cw_hand_poll(&sm->hand, now_ms, sm->hand_lead_ms, sm->hand_hang_ms, &done);
+#if CONFIG_CW_BUG
+		done = done && (!sm->cw_bug || cw_bug_idle(&sm->bug));
+#endif
 		if (key != sm->cw_key) {
 			cw_key(sm, key);
 		}
@@ -9459,6 +9509,9 @@ void radio_sm_request(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 	case RREQ_CW_SEND: cwmsg_start(sm, now_ms); break;
 	case RREQ_CW_STOP: cwmsg_cut(sm, now_ms); break;
 	case RREQ_CW_KEY: cwhand_key(sm, req, now_ms); break;
+#if CONFIG_CW_BUG
+	case RREQ_CW_PADDLE: cwbug_paddle(sm, req, now_ms); break;
+#endif
 #endif
 	case RREQ_MONITOR: monitor_request(sm, req, now_ms); break;
 	case RREQ_POWER: power_request(sm, req); break;
