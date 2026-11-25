@@ -18,6 +18,21 @@ anywhere. It is published on GitHub Pages by `.github/workflows/installer.yml`.
 | DMR voice | The codec slot from that radio's stock firmware file or a program flash backup the codec recipes know (`tools/hrc7000_codec.py` profiles, listed on the page), kept in the browser's IndexedDB per radio. Or none: the install then leaves the radio without DMR voice, since the updater erases the slot |
 | Install | Web Serial at 115200 baud, then the Baofeng updater (the radio's hardware page, "Serial updater"): it listens while the user switches the radio on with its keys held, then erases and writes the image, 0xFF up to the codec slot, and the slot |
 
+## The codeplug editor
+
+The page's second page, **Channels & zones** (`editor/codeplug/`), is the web site's codeplug editor: channels, zones,
+contacts, RX group lists, read from and written to a radio running open32plus over its cable, or kept as a file. It is
+the site's own page, built by `site/build.py` and copied by `tools/installer_build.py --editor`:
+
+| Part | Source |
+|---|---|
+| `editor/codeplug/index.html` | The site's `codeplug/index.html`, with an open32plus header (Install, Channels & zones) and footer in place of the site's, no other languages, the name |
+| `editor/static/` | The site's scripts (all of `static/js/`), styles, vendor list widget and icons |
+| `editor/data/` | The site's `radios.json` and `releases.json`, and its `site.json` with this repository for help and no error reporting address. Apart from the installer's `data/`, whose `radios.json` is another format |
+| `editor/flash/`, `editor/docs/` | Pages the editor links to that this site doesn't have: sent on to the installer and the repository's user docs |
+
+The editor's own tests are the site's (`site/tests/editor.test.mjs`, `codeplug.test.mjs`).
+
 ## How it is built
 
 | Part | Source |
@@ -30,7 +45,8 @@ anywhere. It is published on GitHub Pages by `.github/workflows/installer.yml`.
 | `data/release.json`, `firmware/` | The newest release's `rfoundry-<board>-<version>.bin` and `.json` for each of those radios, when there is a release |
 
 ```
-python3 tools/installer_build.py --out build/installer [--firmware DIR]   # DIR: a release's assets
+python3 site/build.py --out build/site                                    # for --editor
+python3 tools/installer_build.py --out build/installer [--firmware DIR] [--editor build/site]   # DIR: a release's assets
 node --test installer/test/installer.test.mjs                             # against build/installer
 cd build/installer && python3 -m http.server 8000                         # http://localhost:8000
 ```

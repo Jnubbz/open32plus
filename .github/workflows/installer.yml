@@ -2,7 +2,8 @@
 # Copyright (c) 2026 The RadioFoundry Authors
 # Copyright (c) 2026 Josh Noble (KN0BLE)
 # The open32plus web installer on GitHub Pages (installer/README.md): the page, the web flasher modules it uses and the
-# newest release's images for the radios it installs, rebuilt when any of them changes or a release is published. Pages must be set to
+# newest release's images for the radios it installs, and the web site's codeplug editor under editor/, rebuilt when any
+# of them changes or a release is published. Pages must be set to
 # "GitHub Actions" in the repository's settings (Settings > Pages > Source).
 name: Installer
 
@@ -11,8 +12,7 @@ on:
     branches: [main]
     paths:
       - installer/**
-      - site/static/js/**
-      - site/rfoundrysite/**
+      - site/**
       - tools/installer_build.py
       - tools/hrc7000_codec.py
       - tools/rfoundry/**
@@ -55,10 +55,15 @@ jobs:
           else
             echo "no release yet"
           fi
+      # the web site, built only for its codeplug editor, which goes on the page under editor/ (installer_build.py)
+      - name: The web site
+        run: |
+          python3 -m pip install -q --user --break-system-packages -r site/requirements.txt
+          python3 site/build.py --strict --out build/site --repo-url "https://github.com/$GITHUB_REPOSITORY"
       - name: Build the page
         run: |
           python3 tools/installer_build.py --self-test
-          python3 tools/installer_build.py --out build/installer --commit "$GITHUB_SHA" \
+          python3 tools/installer_build.py --out build/installer --commit "$GITHUB_SHA" --editor build/site \
             ${{ steps.rel.outputs.tag != '' && '--firmware build/release' || '' }}
       - name: Test it
         run: node --test installer/test/installer.test.mjs

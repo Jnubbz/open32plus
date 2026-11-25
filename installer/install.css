@@ -35,6 +35,10 @@ body { margin: 0; background: var(--bg); color: var(--fg); }
 header, main, footer { max-width: 44rem; margin: 0 auto; padding: 0 1rem; }
 header { padding-top: 2rem; }
 h1 { margin: 0 0 .25rem; font-size: 1.8rem; letter-spacing: -.01em; }
+/* the site's two pages: this one and the codeplug editor (editor/codeplug/, when the page is built with it) */
+.pages { display: flex; gap: 1rem; margin-bottom: 1rem; font-size: .95rem; }
+.pages a { text-decoration: none; }
+.pages a[aria-current] { font-weight: 600; }
 h1 .sub { font-weight: 400; color: var(--muted); }
 .lead { margin-top: 0; color: var(--muted); }
 a { color: var(--accent); }
