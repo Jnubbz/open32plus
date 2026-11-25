@@ -354,6 +354,8 @@
  "screen.cw_compose": "Invia CW: messaggi predefiniti",
  "screen.cw_send": "Invio CW",
  "screen.cw_decode": "Decodifica CW",
+ "screen.qso_calls": "Rispondere in CW: nominativi sentiti",
+ "screen.qso": "Rispondere in CW: lo scambio",
  "screen.messages": "Messaggi",
  "screen.position": "Posizione (APRS)",
  "screen.aprs_station": "Dettagli di una stazione ascoltata",

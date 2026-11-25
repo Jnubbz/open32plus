@@ -710,7 +710,7 @@ i18nTestDefault: i18nTest.c $(I18N) $(LANG_H) $(wildcard $(CORE)/ui/*.h $(CORE)/
 # the long-press rules; uiSim renders screens to PNG (make ui-gallery: docs/ux/screens/, contact sheets in
 # docs/ux/screens/sheets/). Built without the __attribute__ override above so the weak service stubs
 # (ui_svc_stub.c) give way to the simulator's.
-UIAPP   := $(UI) $(CORE)/ui/ui_app.c $(CORE)/ui/ui_menus.c $(CORE)/ui/ui_find.c $(CORE)/ui/ui_aprs.c $(CORE)/ui/ui_position.c $(CORE)/ui/ui_gps.c $(CORE)/ui/ui_satellite.c $(CORE)/ui/ui_dual.c $(CORE)/radio/tones.c \
+UIAPP   := $(UI) $(CORE)/ui/ui_app.c $(CORE)/ui/ui_menus.c $(CORE)/ui/ui_find.c $(CORE)/ui/ui_aprs.c $(CORE)/ui/ui_position.c $(CORE)/ui/ui_gps.c $(CORE)/ui/ui_satellite.c $(CORE)/ui/ui_dual.c $(CORE)/radio/tones.c $(CORE)/radio/cw_qso.c \
            $(CORE)/codeplug/codeplug_talk.c $(CORE)/codeplug/zone_edit.c $(CORE)/codeplug/zone_shift.c $(CORE)/radio/radio_am.c \
            $(CORE)/radio/radio_bcast.c $(CORE)/support/sha256.c $(CORE)/support/image_hash.c \
            $(CORE)/support/support_info.c sim/ui_sim.c sim/ui_png.c
@@ -988,9 +988,10 @@ run-rxchain: dmrRxChainTest dmrDataChainTest hrc7000RxChainTest
 # The Morse timing (core/radio/morse.c): punctuation, prosigns, Farnsworth spacing, a longer text buffer; CW messages'
 # text (core/radio/radio_cwmsg.c): cleaning and {CALL}; the decoder; the straight key's delayed keying (cw_hand.c)
 morseTest: morseTest.c $(CORE)/radio/morse.c $(CORE)/radio/morse.h $(CORE)/radio/radio_cwmsg.c $(CORE)/radio/radio_cwmsg.h \
-           $(CORE)/radio/morse_decode.c $(CORE)/radio/morse_decode.h $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_hand.h
+           $(CORE)/radio/morse_decode.c $(CORE)/radio/morse_decode.h $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_hand.h \
+           $(CORE)/radio/cw_qso.c $(CORE)/radio/cw_qso.h
 	$(CC) $(CFLAGS) -Wshadow -DMORSE_TEXT_MAX=160 -o $@ morseTest.c $(CORE)/radio/morse.c $(CORE)/radio/radio_cwmsg.c \
-		$(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c -lm
+		$(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_qso.c -lm
 TESTS   += morseTest
 
 run: run-morse

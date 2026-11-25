@@ -10,6 +10,7 @@
 #include "radio/radio_cwmsg.h"
 #include "radio/morse_decode.h"
 #include "radio/cw_hand.h"
+#include "radio/cw_qso.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -410,6 +411,67 @@ static void test_hand(void)
 	CHECK(!cw_hand_poll(&h, 0xFFFFFFE0u + lead + hang, lead, hang, &done) && done);
 }
 
+// ---- The QSO helper (cw_qso.c, morse.md 9): callsigns out of decoded CW, {THEM} filled in ----
+
+static bool is_call(const char *w)
+{
+	bool d;
+	return cw_qso_is_call(w, strlen(w), &d);
+}
+
+static void test_qso(void)
+{
+	// Calls: one or two prefix characters with a letter, a digit, one to four suffix letters, '/' parts
+	const char *calls[] = { "W1AW", "KN0BLE", "VE3XYZ", "2E0ABC", "9A1A", "JA1XYZ", "K1A", "KH6/W1AW", "W1AW/P",
+		"W1AW/QRP", "W1AW/4", "E51ABC", "HB9XYZ" };
+	for (unsigned i = 0; i < sizeof calls / sizeof calls[0]; i++) {
+		CHECK(is_call(calls[i]));
+		if (!is_call(calls[i])) printf("  not a call: %s\n", calls[i]);
+	}
+	// The CW around them is not
+	const char *words[] = { "CQ", "DE", "K", "599", "5NN", "73", "TU", "UR5", "QRZ?", "R5", "1ST", "<SK>", "EE", "BK",
+		"FL", "QTH", "W1ABCDE", "W1AW/QRPPP", "WW", "/W1AW", "W1AW/", "**AW", "TEST", "1234" };
+	for (unsigned i = 0; i < sizeof words / sizeof words[0]; i++) {
+		CHECK(!is_call(words[i]));
+		if (is_call(words[i])) printf("  taken for a call: %s\n", words[i]);
+	}
+	bool d = false;
+	CHECK(cw_qso_is_call("W1A*", 4, &d) && d);
+	CHECK(cw_qso_is_call("W1AW", 4, &d) && !d);
+
+	cw_qso_call_t c[CW_QSO_CALLS];
+	// An answer to a CQ: the caller heard twice comes first, our own call never
+	uint8_t n = cw_qso_calls("CQ CQ DE KN0BLE KN0BLE K KN0BLE DE W1AW W1AW K", "KN0BLE", c);
+	CHECK(n == 1 && strcmp(c[0].call, "W1AW") == 0 && c[0].heard == 2 && !c[0].doubtful);
+	// Newest first; heard more than once ahead of once
+	n = cw_qso_calls("K1ABC DE N2XYZ K KN0BLE DE W1AW K VE3XYZ", "KN0BLE", c);
+	CHECK(n == 4 && strcmp(c[0].call, "VE3XYZ") == 0 && strcmp(c[1].call, "W1AW") == 0 &&
+	      strcmp(c[2].call, "N2XYZ") == 0 && strcmp(c[3].call, "K1ABC") == 0);
+	n = cw_qso_calls("W1AW W1AW DE N2XYZ", "", c);
+	CHECK(n == 2 && strcmp(c[0].call, "W1AW") == 0 && strcmp(c[1].call, "N2XYZ") == 0);
+	// A doubtful copy that fits a clean call counts for it; one that fits none is offered last, marked
+	n = cw_qso_calls("W1A* DE W1AW K N2X*Z", "KN0BLE", c);
+	CHECK(n == 2 && strcmp(c[0].call, "W1AW") == 0 && c[0].heard == 2 && strcmp(c[1].call, "N2X*Z") == 0 &&
+	      c[1].doubtful);
+	// ... and a doubtful copy of our own call is ours
+	n = cw_qso_calls("KN0B*E DE W1AW", "KN0BLE", c);
+	CHECK(n == 1 && strcmp(c[0].call, "W1AW") == 0);
+	// At most five, the newest; nothing in plain CW
+	n = cw_qso_calls("K1A K2A K3A K4A K5A K6A K7A", "", c);
+	CHECK(n == 5 && strcmp(c[0].call, "K7A") == 0 && strcmp(c[4].call, "K3A") == 0);
+	CHECK(cw_qso_calls("CQ CQ TEST 599 TU 73 <SK>", "", c) == 0);
+	CHECK(cw_qso_calls("", "KN0BLE", c) == 0 && cw_qso_calls("   ", NULL, c) == 0);
+
+	// {THEM} filled in, every time; too long is refused
+	char out[40];
+	CHECK(cw_qso_fill("{THEM} DE {CALL} UR 599 599 BK", "W1AW", out, sizeof out) == 28 &&
+	      strcmp(out, "W1AW DE {CALL} UR 599 599 BK") == 0);
+	CHECK(cw_qso_fill("{THEM} {THEM} DE {CALL} K", "KH6/W1AW", out, sizeof out) == 29);
+	CHECK(cw_qso_fill("TU 73", "W1AW", out, sizeof out) == 5 && strcmp(out, "TU 73") == 0);
+	CHECK(cw_qso_fill("{THEM} {THEM} {THEM} {THEM}", "KH6/W1AW/QRP", out, sizeof out) == 0);
+	CHECK(cw_qso_fill("{THEM}", "W1AW", out, 5) == 4 && cw_qso_fill("{THEM}", "W1AW", out, 4) == 0);
+}
+
 int main(void)
 {
 	test_duration();
@@ -420,6 +482,7 @@ int main(void)
 	test_long_text();
 	test_decode();
 	test_hand();
+	test_qso();
 	if (failures != 0) {
 		printf("morseTest: %d failure(s)\n", failures);
 		return 1;

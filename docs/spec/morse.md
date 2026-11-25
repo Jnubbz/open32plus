@@ -125,7 +125,7 @@ a full queue frees it again.
 
 `tests/host/morseTest.c`: punctuation, prosigns, Farnsworth gaps and keyed timelines, and a 160 character buffer.
 `tests/host/mmdvmTest.c`: PARIS at 20 wpm, the code table and keying over time for the CW ID. CW messages: 5.4.
-The decoder: 7.5. The straight key: 8.3.
+The decoder: 7.5. The straight key: 8.3. The QSO helper: 9.3.
 
 ## 7. Decoding CW (`CONFIG_CW_DECODE`)
 
@@ -233,4 +233,51 @@ the speaker during a transmission is not yet known. Listen on a second receiver 
 | `keyassignTest` | Straight key's number, press only, raw edges through the gesture engine, the PTT lock, never on a home key |
 | `radioCoreTest` | A dot and a dash keyed a lead-in late with their lengths, the hang, a late request playing on time, a press during the hang, the hang setting, PTT and a channel change cutting it, a CW message refused over it and the key ignored during one, refusals on DMR and TX inhibit, the time-out |
 | Debug link | `cw.hang` and `cw.tx` in view section 39 ([debuglink.md](debuglink.md)) |
+
+## 9. The QSO helper (`CONFIG_CW_QSO`)
+
+On the decoder's screen, OK replies to a station heard: the callsigns in the decoded text, then exchange lines with
+the one picked filled in, each sent as a CW message (section 5). It needs `CONFIG_CW_SEND` and `CONFIG_CW_DECODE`.
+
+### 9.1 What the user does
+
+| Step | Behavior |
+|---|---|
+| Reply | Decode CW > OK opens `qso-calls`, "Reply to": up to five callsigns from the text as it is then, and Enter call. A call heard more than once shows the count ("3x"). The decoder keeps running under it |
+| Pick | A clean call opens `qso`, the exchange, in the list's place: Back from it returns to Decode CW, where OK makes a fresh list. The stack stays within its six levels with `cw-send` on top |
+| Doubtful | A call with a `*` (a character the decoder couldn't read) is marked and opens the callsign editor (`qso-call`, capitals only) to finish it. So does Enter call. Something that isn't a callsign is refused ("Not a callsign") |
+| Send | OK on a line sends it as a CW message and opens `cw-send` over the exchange: Back returns to the exchange for the next line. Lines are sent only from the exchange, so a press always stands between a misread call and the air |
+
+The exchange lines are fixed for now, on air text that is never translated. `{THEM}` is the call picked, `{CALL}` the
+radio's own callsign as in CW messages (a line is dimmed and refused without one):
+
+| Line | Use |
+|---|---|
+| `{THEM} DE {CALL} {CALL} K` | Answering a CQ, or calling |
+| `{THEM} DE {CALL} UR 599 599 BK` | The report |
+| `{THEM} AGN? K` | Asking for a repeat |
+| `{THEM} TU 73 DE {CALL} EE` | Signing |
+
+### 9.2 Finding the calls (`core/radio/cw_qso.c`)
+
+| Rule | Behavior | Why |
+|---|---|---|
+| Shape | A word is a call when one `/` part is a prefix (one or two characters with a letter: W, KN, 2E, 9A), a digit and a suffix of one to four letters, and the other parts are one to four characters (KH6/, /P, /QRP). At most 12 characters | Takes W1AW, KN0BLE, 2E0ABC, KH6/W1AW; leaves the CW around them: 599, 5NN, 73, TU, UR5, QRZ? |
+| Doubtful | `*` stands for any character, at most two and under half the word. A doubtful copy that fits a clean call counts as that call | The decoder prints `*` for a character it couldn't read |
+| Own call | The radio's callsign (`{CALL}`), or a doubtful copy of it, is left out | Our own CQ is in the text too |
+| Order | Calls heard more than once, then once, then doubtful ones; newest first in each. Five at most | The station answering usually sends its call twice and last |
+
+`cw_qso_fill()` puts the call into each `{THEM}`; `ui_svc_cw_expand()` then fills `{CALL}`.
+
+### 9.3 Size, switches and tests
+
+| Item | Detail |
+|---|---|
+| Switch | `CONFIG_CW_QSO`, = `CW_SEND` and `CW_DECODE`; [feature-matrix.md](../feature-matrix.md) has the flash figure |
+| RAM | About 130 bytes: the calls offered and the call picked |
+| `morseTest` | Callsign shapes taken and refused, the order, doubtful copies and our own call, five at most, `{THEM}` filling and its limit |
+| `uiFlowTest` | Decode CW > OK, the calls with their count, a call into the exchange, a line sent and Back to the exchange, Back to Decode CW, Enter call into an entered call's exchange, an entry refused |
+
+Still to come: exchange lines edited in Settings, `{RST}`, `{STATE}` and a park or summit `{REF}`, and a log of the
+contacts with ADIF export.
 

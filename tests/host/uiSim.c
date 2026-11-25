@@ -107,6 +107,10 @@ static const struct { const char *name, *script; } gallery[] = {
 #if CONFIG_CW_DECODE
 	{ "cw_decode", "ok 2 up ok" },		// Messages > Decode CW, hearing a station
 #endif
+#if CONFIG_CW_QSO
+	{ "qso_calls", "ok 2 up ok ok" },	// Decode CW > OK: the calls heard (morse.md 9)
+	{ "qso", "ok 2 up ok ok ok" },		// ... W1AW picked: the exchange
+#endif
 	{ "recent", "call:9991234,91,g call:9995678,3100,g call:9992222,0,p ok 3" },
 	{ "zones", "ok 4" },
 	{ "channels", "ok 5" },

@@ -343,6 +343,10 @@
 #ifndef CONFIG_CW_DECODE
 #define CONFIG_CW_DECODE		CONFIG_APRS_RX
 #endif
+// The CW QSO helper (docs/spec/morse.md 9): the decoder's callsigns into exchange lines sent as CW messages
+#ifndef CONFIG_CW_QSO
+#define CONFIG_CW_QSO			(CONFIG_CW_SEND && CONFIG_CW_DECODE)
+#endif
 #ifndef CONFIG_APRS_IGATE
 #define CONFIG_APRS_IGATE		(CONFIG_APRS_RX && CONFIG_HOSTLINK)
 #endif
