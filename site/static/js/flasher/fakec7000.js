@@ -94,13 +94,19 @@ export function fakeC7000Options(radio, fb) {
 // erase takes before step 7's answer; onEnd(), the end of transfer acknowledged. After step 3 it ignores step 1 (0x52) and waits for step 4, until the radio is
 // switched off (a new FakeBfLoader at the next power-on), as the radio does (hardware-dm32.md 13.2). onErase() and onBlock(k, data) (k from 0) let a radio model keep what is written.
 export class FakeBfLoader {
-	constructor({ id, send, corrupt = [], silent = false, badStep2 = false, eraseMs = 0, onErase = () => {}, onBlock = () => {}, onEnd = () => {} }) {
+	// again: a damaged frame answered 0x43 with the loader still waiting for the frame (a DM-32's, measured 2026-11-25), not
+	// NAK. damageWhole: a frame that arrives in one write is damaged (a cable driver that loses bytes of a large write)
+	constructor({ id, send, corrupt = [], silent = false, badStep2 = false, eraseMs = 0, again = false, damageWhole = false,
+		onErase = () => {}, onBlock = () => {}, onEnd = () => {} }) {
 		this.magic = new TextEncoder().encode(id);
 		this.send = send;
 		this.corrupt = new Set(corrupt);
 		this.silent = silent;
 		this.badStep2 = badStep2;
 		this.eraseMs = eraseMs;
+		this.again = again;
+		this.damageWhole = damageWhole;
+		this.whole = false;	// the bytes being taken came in one write of a frame's size or more
 		this.onErase = onErase;
 		this.onBlock = onBlock;
 		this.onEnd = onEnd;
@@ -117,6 +123,7 @@ export class FakeBfLoader {
 
 	feed(b) {
 		if (this.silent) return;
+		this.whole = b.length >= 2 + BLOCK + 2;
 		this.inbuf = concat(this.inbuf, b);
 		while (this.step()) { /* each step takes what it can */ }
 	}
@@ -191,6 +198,7 @@ export class FakeBfLoader {
 				this.corrupt.delete(n);
 				f[10] ^= 0x40;		// line noise on the first transfer
 			}
+			if (this.damageWhole && this.whole) f[500] ^= 0x01;
 			const data = f.subarray(2, 2 + BLOCK);
 			let ok = f[1] === 0xFF - n && ((f.at(-2) << 8) | f.at(-1)) === xmodem(data);
 			if (ok && n !== (this.expectN & 0xFF)) {
@@ -202,6 +210,10 @@ export class FakeBfLoader {
 				this.blocks.push(data.slice());
 				this.expectN++;
 				this.send(Uint8Array.of(ACK));
+			} else if (this.again) {
+				this.naks++;
+				this.send(Uint8Array.of(CRC_REQ));	// the frame again, no 0x02 first
+				return true;
 			} else {
 				this.naks++;
 				this.send(Uint8Array.of(NAK));
