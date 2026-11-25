@@ -4223,6 +4223,11 @@ msgid "Lead-in"
 msgstr "Ritardo iniziale"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_KEY_DELAY"
+msgid "Key delay"
+msgstr "Ritardo tasto"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_CW_KEY_HANG"
 msgid "Key hang"
 msgstr "Ritardo finale"

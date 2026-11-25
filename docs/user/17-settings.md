@@ -192,8 +192,9 @@ Between **My radio** and **Signaling tones**, on radios built with `CONFIG_CW_SE
 |---|---|
 | Speed | Character speed, 5 to 40 wpm. Default 20 |
 | Farnsworth | Off, or the overall speed: characters at **Speed**, longer gaps between characters and words. For learning: copy fast characters with time to think. Only CW messages use it; the CW IDs keep standard spacing. Default Off |
-| Lead-in | How long the carrier is up before a CW message's first letter: 300 ms to 2 s. Make it longer if the other station misses your first letter; a receiver with battery save on can sleep through a short one. With a straight key, your keying goes on the air this much later. Default 600 ms |
-| Key hang | With a straight key: how long the transmitter stays on after you let go of the key, 300 ms to 3 s. Long enough to cover the gaps between your words. Default 1 s |
+| Lead-in | How long the carrier is up before a CW message's first letter: 300 ms to 2 s. Make it longer if the other station misses your first letter; a receiver with battery save on can sleep through a short one. Default 600 ms |
+| Key delay | With a straight key or Key by hand: how much later your keying goes on the air, 0 to 2 s. 0 (the default) is live: you hear yourself as you key, but a slow receiver may miss your first dot. A delay lets it open first, and you hear your keying that much late |
+| Key hang | With a straight key or Key by hand: how long the transmitter stays on after you let go of the key, 300 ms to 3 s. Long enough to cover the gaps between your words. Default 1 s |
 | Tone | The tone keyed, 400 to 1000 Hz. Default 800 Hz |
 
 <img src="../ux/screens/160x120i5/settings_cw.png" width="200" alt="Settings > CW">

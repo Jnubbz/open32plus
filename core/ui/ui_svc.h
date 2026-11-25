@@ -491,6 +491,7 @@ typedef enum {
 	UI_SET_CW_WPM, UI_SET_CW_EFF_WPM, UI_SET_CW_TONE_HZ,
 	UI_SET_CW_LEAD_MS,	// CW messages' lead-in in ms, MORSE_LEAD_MS_STEP steps (settings_t.cw_lead; stored 0 reads 600)
 	UI_SET_CW_HANG_MS,	// a straight key's hang in ms, MORSE_HANG_MS_STEP steps (settings_t.cw_hang; stored 0 reads 1000)
+	UI_SET_CW_KEY_DELAY_MS,	// a straight key's and the bug's delay in ms, 0..MORSE_KEY_DELAY_MS_MAX (settings_t.cw_key_delay)
 	UI_SET_COUNT
 } ui_setting_t;
 

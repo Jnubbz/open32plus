@@ -124,7 +124,7 @@ Speed, Farnsworth spacing and tone are in **Settings > CW** ([Settings](17-setti
   tap sends one dit.
 - Hold **Back** for a dah. It lasts exactly as long as you hold it, as on a real bug.
 
-The first press turns the transmitter on. Your keying goes out **Lead-in** later, and the transmitter goes off once you
+The first press turns the transmitter on. Your keying goes out as you key it, and the transmitter goes off once you
 have let go for **Key hang**, as with a straight key (below). The screen shows **Ready**, or **On air** while it
 transmits. Because Back is a paddle here, close the screen with **Up**, **Down** or **#**. PTT stops the keying at
 once. It works only on an FM channel. The details are in [morse.md](../spec/morse.md) 10.
@@ -135,13 +135,14 @@ A side key can be a straight key: hold it and the tone goes out on the FM channe
 
 1. In **Settings > Keys**, set a side key's press to **Straight key**.
 2. Pick an FM channel and key Morse with the side key. The transmitter comes on with your first press.
-3. Your keying goes on the air **Lead-in** later (600 ms by default), with your own timing, so the other radio's
-   squelch is open before your first dot.
+3. Your keying goes on the air as you key it. A radio whose squelch or battery save is slow to open may miss your very
+   first dot, so many operators start with a V. If you'd rather it waited, set **Key delay**: your keying then goes out
+   that much later, and you hear it that much late on the other radio.
 4. The transmitter goes off once you have let go of the key for **Key hang** (1 s by default). Press PTT to stop at
    once.
 
 It works only on an FM channel, like CW messages, and keys the channel's TX subtone too. The radio's speaker doesn't play
-your keying yet: listen on a second radio. Both times are in **Settings > CW** ([Settings](17-settings.md#cw)). The
+your keying yet: listen on a second radio. Key delay and Key hang are in **Settings > CW** ([Settings](17-settings.md#cw)). The
 details are in [morse.md](../spec/morse.md) 8.
 
 ## Decoding CW

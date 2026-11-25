@@ -7345,7 +7345,7 @@ static const set_item_t s_talk[] = {
 };
 #if CONFIG_CW_SEND
 // Settings > CW (docs/spec/morse.md): the keyer's speed and tone (the CW IDs' too), CW messages' Farnsworth speed
-// and lead-in (a straight key's delay too), a straight key's hang
+// and lead-in, a straight key's delay and hang
 static const set_item_t s_cw[] = {
 	NUMBER(TRN(SET_LABEL_CW_SPEED, "Speed"), "morse wpm words per minute keyer", UI_SET_CW_WPM, 5, 40, 1, " wpm"),
 	LIST(TRN(SET_LABEL_CW_FARNSWORTH, "Farnsworth"), "morse spacing overall speed learning", UI_SET_CW_EFF_WPM,
@@ -7354,6 +7354,9 @@ static const set_item_t s_cw[] = {
 	// Carrier before a message's first letter: longer for receivers with battery save on
 	NUMBER(TRN(SET_LABEL_CW_LEAD_IN, "Lead-in"), "morse delay carrier first letter battery save", UI_SET_CW_LEAD_MS,
 	       300, 2000, 100, " ms"),
+	// A straight key's and the bug's delay on air: 0, live, unless set (morse.md 8)
+	NUMBER(TRN(SET_LABEL_CW_KEY_DELAY, "Key delay"), "morse straight key bug delay latency lead", UI_SET_CW_KEY_DELAY_MS,
+	       0, 2000, 100, " ms"),
 	// How long a straight key's carrier stays up after the last release (morse.md 8)
 	NUMBER(TRN(SET_LABEL_CW_KEY_HANG, "Key hang"), "morse straight key break-in delay carrier side key", UI_SET_CW_HANG_MS,
 	       300, 3000, 100, " ms"),

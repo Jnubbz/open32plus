@@ -7384,6 +7384,15 @@ static uint32_t cw_msg_lead(void)
 	return ms >= MORSE_LEAD_MS_MIN && ms <= MORSE_LEAD_MS_MAX ? ms : MORSE_LEAD_MS_DEFAULT;
 }
 
+// A straight key's delay from the settings: 0 (live) unless set, at most MORSE_KEY_DELAY_MS_MAX
+static uint32_t cw_key_delay(void)
+{
+	settings_t *st = &st_copy;
+	settings_read(st);
+	uint32_t ms = (uint32_t)st->cw_key_delay * MORSE_KEY_DELAY_MS_STEP;
+	return ms <= MORSE_KEY_DELAY_MS_MAX ? ms : 0;
+}
+
 // A straight key's hang from the settings (0 or out of range: the default)
 static uint32_t cw_hand_hang(void)
 {
@@ -7640,7 +7649,7 @@ static bool cwhand_begin(radio_sm_t *sm, uint32_t now_ms)
 #else
 	(void)wpm;
 #endif
-	sm->hand_lead_ms = (uint16_t)cw_msg_lead();
+	sm->hand_lead_ms = (uint16_t)cw_key_delay();	// live by default: the operator hears the keying as sent
 	sm->hand_hang_ms = (uint16_t)cw_hand_hang();
 	sm->cw_msg = sm->cw_hand = true;
 	sm->view.cw_tx = true;

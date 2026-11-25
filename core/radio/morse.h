@@ -31,6 +31,9 @@
 #define MORSE_HANG_MS_MIN	300
 #define MORSE_HANG_MS_MAX	3000
 #define MORSE_HANG_MS_STEP	100
+// A straight key's and the bug's delay (morse.md 8, settings cw_key_delay): 0, live keying, unless set
+#define MORSE_KEY_DELAY_MS_MAX	2000
+#define MORSE_KEY_DELAY_MS_STEP	100
 #define MORSE_ID_MAX		40	// a CW ID's characters; a longer ID is cut (the SDR bench sends up to 40, MMDVMHost a callsign)
 // The characters morse_t holds; longer text is cut. CW messages (CONFIG_CW_SEND) need the message editor's length
 #ifndef MORSE_TEXT_MAX

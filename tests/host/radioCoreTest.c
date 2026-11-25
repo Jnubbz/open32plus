@@ -4264,6 +4264,22 @@ static void test_cw_straight_key(void)
 	setup_codeplug();
 	start();
 	run(50);
+	// Live by default: the tone follows the key at once, the carrier hangs after it
+	memset(&tone, 0, sizeof(tone));
+	uint32_t tl = now;
+	cw_key_edge(true, now);
+	run(10);					// on air at the radio's next tick
+	CHECK(sm.view.state == RS_TX && sm.cw_hand && tone.changes == 1 && tone.first_down_ms <= tl + 10);
+	run(50);
+	cw_key_edge(false, now);
+	run(10);
+	CHECK(tone.changes == 2 && tone.down_ms >= 55 && tone.down_ms <= 65);
+	run(1100);
+	CHECK(sm.view.state == RS_IDLE && !sm.cw_hand);
+	// The rest of these tests with Settings > CW > Key delay at 600 ms: each edge on air that much later
+	settings_t *sd = settings_begin();
+	sd->cw_key_delay = 6;
+	settings_end(now);
 	radio_cwmsg_view_t v0, v;
 	radio_cwmsg_get(&v0);
 	memset(&tone, 0, sizeof(tone));
@@ -4399,6 +4415,9 @@ static void test_cw_straight_key(void)
 	CHECK(sm.view.state == RS_IDLE);
 	set.tot_s = 180;
 	radio_sm_set_settings(&sm, &set, now);
+	sd = settings_begin();
+	sd->cw_key_delay = 0;
+	settings_end(now);
 }
 
 #if CONFIG_CW_BUG
@@ -4416,6 +4435,9 @@ static void test_cw_bug(void)
 	setup_codeplug();
 	start();
 	run(50);
+	settings_t *sd = settings_begin();
+	sd->cw_key_delay = 6;	// 600 ms on air after the paddles (live, the dits start at the press, 50 ms behind: the
+	settings_end(now);	// bug runs that far behind now)
 	memset(&tone, 0, sizeof(tone));
 	int tx0 = hw.tx_calls, off0 = hw.tx_off_calls;
 
@@ -4473,6 +4495,20 @@ static void test_cw_bug(void)
 	paddle(false, false, now);
 	req(RREQ_ZONE_POS, 0);
 	run(100);
+	// Live (no delay): the first dit is on air 50 ms after the press, as the bug runs behind now
+	sd = settings_begin();
+	sd->cw_key_delay = 0;
+	settings_end(now);
+	memset(&tone, 0, sizeof(tone));
+	uint32_t tb = now;
+	paddle(false, true, now);
+	run(30);
+	paddle(false, false, now);
+	run(200);
+	CHECK(tone.changes == 2 && tone.first_down_ms >= tb + 45 && tone.first_down_ms <= tb + 65);
+	CHECK(tone.down_ms >= 55 && tone.down_ms <= 65);
+	run(1500);
+	CHECK(sm.view.state == RS_IDLE);
 }
 #endif
 #endif
@@ -6960,7 +6996,7 @@ static void test_factory_reset(void)
 	CHECK(settings_flush());
 	n_ev = 0;
 	CHECK(ui_svc_factory_reset());
-	sim_flash_cut_after(452);	// the settings records (page 1: 192 + 4 bytes, page 0: 252 + 4, rounded up as the sizes are) go in, the native erase fails
+	sim_flash_cut_after(456);	// the settings records (page 1: 196 + 4 bytes, page 0: 252 + 4, rounded up as the sizes are) go in, the native erase fails
 	storage_job_poll();
 	sim_flash_power_on();
 	CHECK(n_ev == 1 && strstr(tr_en(last_ev.why), "native") != NULL);
