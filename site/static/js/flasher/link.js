@@ -162,6 +162,19 @@ export class SerialStream {
 		this.received = 0;
 		this.first = new Uint8Array(0);
 		this.outUntil = 0;	// Date.now() by which everything written so far has left (close waits for it)
+		this.waiters = [];	// arrived()'s: settled by the next bytes in, or the pump's end
+	}
+
+	// Settles when bytes next come in (or the pump ends): a wait for a reply that needs no timer while they come, so
+	// a hidden tab's held-back timers don't slow it (bytes.js sleep)
+	arrived() {
+		return new Promise((r) => this.waiters.push(r));
+	}
+
+	wake() {
+		const w = this.waiters;
+		this.waiters = [];
+		for (const r of w) r();
 	}
 
 	static async request() {
@@ -230,6 +243,7 @@ export class SerialStream {
 					if (value.length) glitches = 0;
 					this.buf = concat(this.buf, value);
 					this.received += value.length;
+					if (value.length) this.wake();
 					if (this.first.length < 16) this.first = concat(this.first, value.subarray(0, 16 - this.first.length));
 				}
 			} catch (e) {
@@ -249,6 +263,7 @@ export class SerialStream {
 		}
 		// the device went away (or its port stopped reading): a page that kept this stream would talk to nothing
 		if (!this.closed) this.lost = true;
+		this.wake();
 	}
 
 	// A port whose device went away has no writable: that is a lost connection (errorKey), not a TypeError. A write

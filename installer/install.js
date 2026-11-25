@@ -136,11 +136,50 @@ function explain(e) {
 	return e?.message || String(e);
 }
 
+// While an install runs: the screen and the computer kept awake (a computer that sleeps drops the cable), a warning
+// before the page is closed or reloaded, and the tab's title saying so while it is hidden. Waits are timed in a worker
+// (bytes.js sleep), so a hidden tab keeps going, but the radio still stops if the computer sleeps or the tab closes
+const guard = {
+	lock: null,
+	title: document.title,
+	async awake() {
+		try {
+			if (S.busy && document.visibilityState === "visible" && !this.lock) {
+				this.lock = await navigator.wakeLock?.request("screen");
+				this.lock?.addEventListener("release", () => { this.lock = null; });
+			}
+		} catch { /* not granted (battery saver, an old browser): the warning still says so */ }
+	},
+	start() {
+		this.awake();
+		window.addEventListener("beforeunload", this.unload);
+		document.addEventListener("visibilitychange", this.shown);
+	},
+	stop() {
+		window.removeEventListener("beforeunload", this.unload);
+		document.removeEventListener("visibilitychange", this.shown);
+		document.title = this.title;
+		this.lock?.release().catch(() => {});
+		this.lock = null;
+	},
+	unload(e) {
+		e.preventDefault();
+		e.returnValue = "";
+	},
+	shown() {
+		const hidden = document.visibilityState === "hidden";
+		document.title = hidden ? "⚠ Installing: keep this tab open" : guard.title;
+		if (hidden) log("the page went to the background (installing goes on; keep the tab open and the computer awake)");
+		else guard.awake();	// a wake lock ends when the page is hidden: taken again
+	},
+};
+
 async function install() {
 	const api = serialApi();
 	let stream = null;
 	let erased = false;	// past step 7: a stop leaves the radio without firmware until an install completes
 	S.busy = true;
+	guard.start();
 	S.stop = new AbortController();
 	delete $("install-status").dataset.kept;
 	$("progress").hidden = true;
@@ -183,6 +222,7 @@ async function install() {
 		done(text, "bad");
 	} finally {
 		if (stream) await stream.close().catch(() => {});
+		guard.stop();
 		S.busy = false;
 		S.stop = null;
 		refresh();
@@ -235,6 +275,12 @@ async function start() {
 	});
 	$("codec-skip").addEventListener("change", refresh);
 	$("connect").addEventListener("click", install);
+	document.querySelector(".theme-toggle")?.addEventListener("click", () => {
+		const root = document.documentElement;
+		const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+		root.dataset.theme = dark ? "light" : "dark";
+		try { localStorage.setItem("rfoundry-theme", root.dataset.theme); } catch { /* private mode: not remembered */ }
+	});
 	$("stop").addEventListener("click", () => S.stop?.abort());
 	await chooseRadio(first);
 }

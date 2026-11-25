@@ -8,18 +8,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>open32plus installer</title>
 <meta name="description" content="Install open32plus firmware from Chrome, over the programming cable.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%232f6f4f%22/%3E%3Cpath d=%22M3 8h2m2 0h6%22 stroke=%22white%22 stroke-width=%222%22/%3E%3C/svg%3E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="install.css">
+<script>try{var t=localStorage.getItem("rfoundry-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
-<header>
-	<nav class="pages"><a href="./" aria-current="page">Install</a> <a href="editor/codeplug/">Channels &amp; zones</a></nav>
-	<h1>open32plus <span class="sub">installer</span></h1>
-	<p class="lead">Open firmware for Baofeng DMR radios, installed from this page over the programming cable.
-	Based on <a href="https://radiofoundry.org">RadioFoundry</a>. MIT licensed.</p>
+<header class="site-header">
+	<div class="wrap header-row">
+		<a class="brand" href="./">
+			<img src="icon.svg" alt="" width="28" height="28">
+			<span>open32<b>plus</b></span>
+		</a>
+		<nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Install</a> <a href="editor/codeplug/">Channels &amp; zones</a></nav>
+		<button class="theme-toggle" type="button" aria-label="Theme" title="Theme">&#9680;</button>
+	</div>
 </header>
 
 <main>
+	<div class="page-head">
+		<h1>Install open32plus</h1>
+		<p class="lead">Open firmware for Baofeng DMR radios, installed from this page over the programming cable.
+		Based on <a href="https://radiofoundry.org">RadioFoundry</a>. MIT licensed.</p>
+	</div>
+
 	<div id="nosupport" class="notice bad" hidden>
 		<b>This browser can't reach the programming cable.</b> Use Chrome or Edge on a desktop computer.
 	</div>
@@ -68,6 +79,10 @@
 			<li>Switch the radio <b>off</b>. Hold <b id="keys"></b> and switch it on<span id="sign"></span>: that is update
 			mode. Let go of the keys.</li>
 		</ol>
+		<p class="notice"><b>Keep this tab open and in front until it says Installed</b> (a few minutes). Don't minimize
+		the window, switch tabs or let the computer sleep: Chrome slows a page it can't see, and the radio gives up waiting.
+		This page keeps the screen on while it installs. If an install stops, switch the radio back into update mode and
+		install again.</p>
 		<div class="row">
 			<button type="button" id="connect" class="primary" disabled>Connect</button>
 			<button type="button" id="stop" hidden>Stop</button>
@@ -94,9 +109,9 @@
 </main>
 
 <footer>
-	<p>open32plus: <a href="https://github.com/Jnubbz/open32plus">github.com/Jnubbz/open32plus</a> ·
+	<div class="wrap"><p>open32plus: <a href="https://github.com/Jnubbz/open32plus">github.com/Jnubbz/open32plus</a> ·
 	based on <a href="https://github.com/radiofoundry/radiofoundry">RadioFoundry</a>, © 2026 The RadioFoundry Authors and
-	Josh Noble (KN0BLE), MIT license · <span id="site-build"></span></p>
+	Josh Noble (KN0BLE), MIT license · <span id="site-build"></span></p></div>
 </footer>
 <script type="module" src="install.js"></script>
 </body>
