@@ -328,7 +328,7 @@ clock`; ? = not known yet). No driver reads the clock yet ([radio-features.md](s
 | DTMF transmit from the keys | `DTMF` | 920 | — | MD-380: TX tone path not written |
 | CW messages: canned or typed text keyed as Morse on an FM channel, Settings > CW | `CW_SEND` | 2,864 | — | MD-380: TX tone path not written. DM-1701 figure (2026-11-24). On the air with a DM-32UV (2026-11-24, [its bring-up](testing/dm32-bringup.md#14-cw-messages)) |
 | CW QSO helper: Decode CW > OK lists the calls heard; exchange lines with the call filled in, sent as CW | `CW_QSO` | 2,000 | — | Needs CW_SEND and CW_DECODE. DM-1701 figure (2026-11-24), untested on air |
-| CW decoder: Morse from the FM channel shown as text, Messages > Decode CW | `CW_DECODE` | 3,476 | — | Needs APRS_RX's received-audio path. DM-1701 figure (2026-11-24), untested on air |
+| CW decoder: Morse from the FM channel shown as text, Messages > Decode CW | `CW_DECODE` | 3,476 | — | Needs APRS_RX's received-audio path. DM-1701 figure (2026-11-24). On the air with a DM-32UV (2026-11-24, [its bring-up](testing/dm32-bringup.md#cw-decoder)) |
 | FM VOX | `VOX` | 496 | 1,064 |  |
 | Receiver battery saver | `BATTERY_SAVE` | 296 | 740 |  |
 | Frequency trim, Settings > Advanced | `REF_TRIM` | 2,156 | 2,232 | Figures from tools/ci.sh (2026-10-30); the hook on each radio, the page and the setting |
