@@ -104,6 +104,28 @@ test("Baofeng updater: a block refused every time stops the write and names it; 
 	assert.equal(quiet.s.sent.length, 0);
 });
 
+// A radio on Chrome (2026-11-25, its hardware page 13.2): every frame written at once arrived damaged, and the loader answered 0x43 and waited for
+// the frame itself. The page sends the frame again without 0x02, then paces every frame; the old way (0x02 again) got
+// silence and failed block 1
+test("Baofeng updater: a frame asked for again (43) is resent without 02, and the rest are paced", async () => {
+	const { s, fake } = bench({ again: true, damageWhole: true, eraseMs: 10 });
+	const logs = [];
+	const l = loaderOn(s, { log: (x) => logs.push(x) });
+	const img = app(5000);
+	assert.equal(await l.write(img), 5);
+	assert.deepEqual(fake.errors, []);
+	assert.ok(equal(fake.image().subarray(0, img.length), img));
+	assert.ok(fake.done);
+	assert.equal(fake.naks, 1, "only the first frame, written whole, arrived damaged");
+	assert.ok(logs.some((x) => /block 1: asked for it again \(43\)/.test(x)));
+	assert.ok(logs.some((x) => /smaller pieces/.test(x)));
+	// a frame refused for good by 43 still ends with the block named
+	const bad = bench({ again: true });
+	bad.fake.corrupt = new Set([1]);
+	bad.fake.corrupt.delete = () => true;
+	await assert.rejects(loaderOn(bad.s, { retries: 2 }).write(app(2048)), /block 1: asked for it again \(43\).* after 3 tries/);
+});
+
 test("Baofeng updater: silence, a wrong step 2 answer, another radio's loader and a slow erase each stop the write", async () => {
 	const img = new Uint8Array(2048).fill(9);
 	const silent = bench({ silent: true });

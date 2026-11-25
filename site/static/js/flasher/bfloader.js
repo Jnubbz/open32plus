@@ -18,6 +18,11 @@ export const HEADER_BLOCK = 128;
 export const STEP_TIMEOUT = 2000;	// steps 1-6 and every 1 KB block
 export const ERASE_TIMEOUT = 30000;	// step 7: the radio erases the application area (up to about 15 s)
 export const RETRIES = 4;		// resends of a block the radio refuses (NAK) or doesn't answer
+// A block frame written in pieces of PACE bytes, each given its time on the line, once the radio has asked for a block
+// again (a damaged frame): a browser hands a USB-serial driver the whole 1028 bytes at once, and on the air test of
+// 2026-11-25 a radio took every frame through Chrome damaged while serial_loader.py on the same cable wrote clean
+const PACE = 128;
+const BAUD = 115200;
 
 // CRC-16/XMODEM: link.js's CRC-16 from an initial value of 0
 export const xmodem = (data) => crc16(data, 0);
@@ -195,22 +200,52 @@ export class BfLoader {
 		return total;
 	}
 
+	// The frame on the cable: at once, or paced (PACE) once the radio has asked for a block again
+	async writeFrame(frame) {
+		if (!this.paced) {
+			await this.s.write(frame);
+			return;
+		}
+		for (let i = 0; i < frame.length; i += PACE) {
+			const piece = frame.subarray(i, i + PACE);
+			await this.s.write(piece);
+			await sleep(Math.ceil((piece.length * 10 * 1000) / BAUD) + 1);
+		}
+	}
+
 	async sendBlock(n, chunk) {
 		const frame = dataFrame(n, chunk);
 		let last = null;
+		let stx = true;		// the next try starts with 0x02; not after the radio asked for the frame again
 		for (let attempt = 0; attempt < 1 + this.retries; attempt++) {
 			if (attempt) this.log(`   block ${n}: ${last}, sending it again (${attempt} of ${this.retries})`);
-			await this.s.write(Uint8Array.of(STX));
-			let got = await this.readExact(1, this.stepTimeout);
-			if (!(got.length === 1 && got[0] === CRC_REQ)) {
-				last = `answered ${hexs(got)} to 02 instead of 43`;
-				this.s.clear();
-				continue;
+			let got;
+			if (stx) {
+				await this.s.write(Uint8Array.of(STX));
+				got = await this.readExact(1, this.stepTimeout);
+				if (!(got.length === 1 && got[0] === CRC_REQ)) {
+					last = `answered ${hexs(got)}${this.s.buf.length ? ` (then ${hexs(this.s.buf.slice(0, 8))})` : ""} to 02 instead of 43`;
+					this.s.clear();
+					continue;
+				}
 			}
-			await this.s.write(frame);
+			await this.writeFrame(frame);
 			got = await this.readExact(1, this.stepTimeout);
 			if (got.length === 1 && got[0] === ACK) return;
+			if (got.length === 1 && got[0] === CRC_REQ) {
+				// The loader answers a damaged frame with 0x43, not a NAK, and then waits for the frame itself: a 0x02
+				// now would be taken as its first byte (the radio's hardware page, 13.2: 43, then silence to every 02). The
+				// frame goes again, and every frame from here on is paced
+				last = "asked for it again (43): it arrived damaged";
+				stx = false;
+				if (!this.paced) {
+					this.paced = true;
+					this.log("   the radio took a block damaged: sending the rest in smaller pieces");
+				}
+				continue;
+			}
 			last = got.length === 1 && got[0] === NAK ? "refused (NAK)" : `answered ${hexs(got)}`;
+			stx = true;
 			this.s.clear();
 		}
 		// block: the page counts these per cable, since one that loses a block keeps losing them (iapui.js)

@@ -1396,7 +1396,7 @@ Enter by holding **PTT + SK1** while turning the radio on; the green LED lights 
 | 5 | 0x31 | 0x43 |
 | 6 | 0x01 | 0x43 |
 | 7 | 0x00 0xFF, then a 128-byte block: name, 0x00, decimal size as ASCII, zero padded; then CRC-16/XMODEM of the block, big endian. The radio erases the app area (up to about 15 s) | 0x06 0x43 |
-| 8 | per 1 KB block: 0x02, wait 0x43; block number n, 0xFF − n (n starts at 1, wraps 0xFF → 0x00); 1024 bytes (last block zero padded); CRC-16/XMODEM big endian | 0x06 |
+| 8 | per 1 KB block: 0x02, wait 0x43; block number n, 0xFF − n (n starts at 1, wraps 0xFF → 0x00); 1024 bytes (last block zero padded); CRC-16/XMODEM big endian | 0x06; 0x43 for a damaged frame, then it waits for the frame again, not for 0x02 (measured 2026-11-25) |
 | 9 | 0x04 | (reboots) |
 
 The image sent is the raw application (the 256-byte header is stripped). The file name and size are not used. The vendor CPS also sends seven 130-byte zero blocks before rebooting; they are not needed (unverified).
@@ -1418,6 +1418,12 @@ Measured install (2026-10-26, FTDI FT232R cable, the web flasher's `bfloader.js`
 | Erase (step 7) | 12.6 s |
 | Blocks (step 8) | 974 in 125 s, no NAK and no resend |
 | Whole install | about 2.5 min |
+
+A web install through Chrome on Windows (2026-11-25, the owner's programming cable, the image above with codec 049)
+erased, then had block 1 answered 0x43 after its frame: the frame arrived damaged. The page then sent 0x02 again, which
+the loader took as the frame's first byte, and every try after got no answer. `serial_loader.py` on the same cable
+wrote the same image clean. The page now sends a frame asked for again without 0x02, and paces every later frame in
+128-byte pieces (`bfloader.js` `writeFrame`). Untested on the radio
 | After step 9 | RadioFoundry started by itself and answered on the cable: board `DM-32UV`, codec `dm32-049` |
 
 `tools/serial_loader.py` implements this protocol (untested on a radio; [dm32-migration.md](dm32-migration.md) 1). The web
