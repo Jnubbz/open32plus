@@ -931,8 +931,9 @@ static void test_settings_layout(void)
 		{ offsetof(settings_t, sig_fm), 403 },
 		{ offsetof(settings_t, cw_hang), 407 },		// was reserved11's last byte
 		{ offsetof(settings_t, aes_mi_res), 408 },
+		{ offsetof(settings_t, cw_key_delay), 412 },	// appended
 	};
-	CHECK(sizeof(settings_t) == 412);
+	CHECK(sizeof(settings_t) == 416);
 	for (unsigned i = 0; i < sizeof(offs) / sizeof(offs[0]); i++) {
 		if (offs[i].got != offs[i].want) {
 			printf("FAIL settings_t field %u at %zu, layout 1 has it at %zu\n", i, offs[i].got, offs[i].want);

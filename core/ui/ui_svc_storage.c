@@ -315,6 +315,10 @@ static __attribute__((noinline)) int32_t setting_get_flash(uint8_t id)
 		int32_t ms = (int32_t)SETTINGS_FIELD(cw_lead) * MORSE_LEAD_MS_STEP;
 		return ms >= MORSE_LEAD_MS_MIN && ms <= MORSE_LEAD_MS_MAX ? ms : MORSE_LEAD_MS_DEFAULT;
 	}
+	case UI_SET_CW_KEY_DELAY_MS: {	// out of range: 0 (radio_sm.c cw_key_delay)
+		int32_t ms = (int32_t)SETTINGS_FIELD(cw_key_delay) * MORSE_KEY_DELAY_MS_STEP;
+		return ms <= MORSE_KEY_DELAY_MS_MAX ? ms : 0;
+	}
 	case UI_SET_CW_HANG_MS: {	// stored 0, or out of range: the default (radio_sm.c cw_hand_hang)
 		int32_t ms = (int32_t)SETTINGS_FIELD(cw_hang) * MORSE_HANG_MS_STEP;
 		return ms >= MORSE_HANG_MS_MIN && ms <= MORSE_HANG_MS_MAX ? ms : MORSE_HANG_MS_DEFAULT;
@@ -665,6 +669,13 @@ bool ui_svc_setting_set(uint8_t id, int32_t value)
 			return false;
 		st = settings_begin();
 		st->cw_lead = (uint8_t)(value / MORSE_LEAD_MS_STEP);
+		settings_end(hal_millis());
+		return true;
+	case UI_SET_CW_KEY_DELAY_MS:
+		if (value < 0 || value > MORSE_KEY_DELAY_MS_MAX || value % MORSE_KEY_DELAY_MS_STEP != 0)
+			return false;
+		st = settings_begin();
+		st->cw_key_delay = (uint8_t)(value / MORSE_KEY_DELAY_MS_STEP);
 		settings_end(hal_millis());
 		return true;
 	case UI_SET_CW_HANG_MS:
