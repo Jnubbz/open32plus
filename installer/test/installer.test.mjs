@@ -114,3 +114,19 @@ test("the whole install over the updater: the radio gets exactly the install byt
 	assert.ok(fake.done);
 	assert.ok(equal(fake.image().subarray(0, bytes.length), bytes));
 });
+
+// A file named for another radio (a release asset or a build) is caught by its name; a renamed one isn't named. Made-up
+// board ids, one the start of another (a radio and its Pro model)
+test("fileBoard reads the radio from a firmware file's name", () => {
+	const ids = ["ab12", "ab12pro", "cd3"];
+	assert.equal(core.fileBoard("rfoundry-ab12-v26.11b1.bin", ids), "ab12");
+	assert.equal(core.fileBoard("rfoundry-ab12pro-v26.11b1.bin", ids), "ab12pro");
+	assert.equal(core.fileBoard("rfoundry-ab12-v26.11.2.bin", ids), "ab12");
+	assert.equal(core.fileBoard("rfoundry_ab12.bin", ids), "ab12");
+	assert.equal(core.fileBoard("rfoundry_ab12pro_codec.bin", ids), "ab12pro");
+	assert.equal(core.fileBoard("rfoundry-ab12-v26.11b1 (1).bin", ids), "ab12");	// a browser's second download
+	assert.equal(core.fileBoard("RFOUNDRY-AB12-V26.11B1.BIN", ids), "ab12");
+	assert.equal(core.fileBoard("firmware.bin", ids), null);
+	assert.equal(core.fileBoard("rfoundry-zz9-v26.11b1.bin", ids), null);	// not a radio this page installs
+	assert.equal(core.fileBoard("rfoundry-ab12-v26.11b1.json", ids), null);
+});

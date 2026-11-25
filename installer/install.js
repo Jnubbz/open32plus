@@ -80,6 +80,13 @@ async function useRelease() {
 async function useOwn(file) {
 	S.fw = null;
 	try {
+		// A file named for another radio is refused before anything reaches the radio: its bootloader would erase the
+		// application area first, and only then refuse the image
+		const named = core.fileBoard(file.name, S.radios.map((r) => r.id));
+		if (named && named !== S.radio.id) {
+			const other = S.radios.find((r) => r.id === named);
+			throw new core.InstallError(`${file.name} is for the ${other?.name || named}, not the ${S.radio.name}. Choose the file with ${S.radio.id} in its name.`);
+		}
 		const data = await readFile(file);
 		const { image, slot } = await core.splitOwn(S.c, S.radio.id, data);
 		S.fw = { image, slot, source: file.name };
