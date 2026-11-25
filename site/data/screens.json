@@ -308,6 +308,18 @@
     "CW_DECODE"
    ]
   },
+  "qso_calls": {
+   "group": "messages",
+   "needs": [
+    "CW_QSO"
+   ]
+  },
+  "qso": {
+   "group": "messages",
+   "needs": [
+    "CW_QSO"
+   ]
+  },
   "message_view": {
    "group": "messages",
    "needs": [

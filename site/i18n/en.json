@@ -354,6 +354,8 @@
  "screen.cw_compose": "Send CW: canned messages",
  "screen.cw_send": "Sending CW",
  "screen.cw_decode": "Decoding CW",
+ "screen.qso_calls": "Replying in CW: the calls heard",
+ "screen.qso": "Replying in CW: the exchange",
  "screen.messages": "Messages",
  "screen.position": "Position (APRS)",
  "screen.aprs_station": "Heard station details",
