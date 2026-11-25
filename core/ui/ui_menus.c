@@ -558,9 +558,9 @@ static void cw_send(const char *text)
 	ui_push(SCR_CW_SEND, 0);
 }
 
-// Key by hand (the bug, CONFIG_CW_BUG) sits before Write..., which stays the last row
-#define CW_ROW_BUG	(CONFIG_CW_BUG ? CW_CANNED_N : 0xFFFFu)
-#define CW_ROW_WRITE	(CW_CANNED_N + (CONFIG_CW_BUG ? 1u : 0u))
+// Key by hand (the bug, CONFIG_CW_PADDLES) sits before Write..., which stays the last row
+#define CW_ROW_BUG	(CONFIG_CW_PADDLES ? CW_CANNED_N : 0xFFFFu)
+#define CW_ROW_WRITE	(CW_CANNED_N + (CONFIG_CW_PADDLES ? 1u : 0u))
 
 static uint16_t cw_compose_count(void) { return CW_ROW_WRITE + 1u; }
 
@@ -570,7 +570,7 @@ static void cw_compose_item(uint16_t i, ui_item_t *it)
 		str_copy(it->label, sizeof it->label, TR(MSG_ROW_WRITE, "Write..."));
 		return;
 	}
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	if (i == CW_ROW_BUG) {
 		str_copy(it->label, sizeof it->label, TR(CW_ROW_KEY_BY_HAND, "Key by hand"));
 		return;
@@ -598,7 +598,7 @@ static void cw_compose_select(uint16_t i, bool hold)
 		ui_text_open_message(false);
 		return;
 	}
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	if (i == CW_ROW_BUG) {
 		ui_push(SCR_CW_KEY, 0);
 		return;
@@ -664,7 +664,7 @@ static const ui_scr_def_t cw_send_screen = {
 	.count = cw_send_count, .item = cw_send_item, .body = cw_send_body, .key = cw_send_key,
 };
 
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 // Key by hand (morse.md 10): while open, OK and Back are a bug's paddles. OK sends dits at Settings > CW > Speed for
 // as long as it is held, Back a dah as long as it is held; the keying goes on air as the straight key's does. Back is a
 // paddle here, so Up, Down and # (and a turn of the knob) close it; * is still Quick settings. PTT stops the keying
@@ -7229,6 +7229,12 @@ static const int16_t v_cwtone[] = { 400, 500, 600, 700, 800, 900, 1000 };
 static const tr_id_t n_cwtone[] = { TRX(CW_VALUE_400_HZ, "400 Hz"), TRX(CW_VALUE_500_HZ, "500 Hz"),
 	TRX(CW_VALUE_600_HZ, "600 Hz"), TRX(CW_VALUE_700_HZ, "700 Hz"), TRX(CW_VALUE_800_HZ, "800 Hz"),
 	TRX(CW_VALUE_900_HZ, "900 Hz"), TRX(CW_VALUE_1000_HZ, "1000 Hz") };
+#if CONFIG_CW_PADDLES
+// The paddles' keyer (cw_keyer_mode_t, morse.md 10): the mode names are the same in every language, a bug isn't
+static const int16_t v_cwpaddle[] = { 0, 1, 2, 3 };
+static const tr_id_t n_cwpaddle[] = { TRX(CW_VALUE_IAMBIC_B, "Iambic B"), TRX(CW_VALUE_IAMBIC_A, "Iambic A"),
+	TRX(CW_VALUE_ULTIMATIC, "Ultimatic"), TRN(CW_VALUE_BUG, "Bug") };
+#endif
 #endif
 #if CONFIG_DMR && CONFIG_DMR_PRIVACY
 static const int16_t v_ptype[] = { 0, 1, 2 };	// dmrPrivacyType_t
@@ -7345,7 +7351,7 @@ static const set_item_t s_talk[] = {
 };
 #if CONFIG_CW_SEND
 // Settings > CW (docs/spec/morse.md): the keyer's speed and tone (the CW IDs' too), CW messages' Farnsworth speed
-// and lead-in, a straight key's delay and hang
+// and lead-in, a straight key's delay and hang, the paddles' keyer
 static const set_item_t s_cw[] = {
 	NUMBER(TRN(SET_LABEL_CW_SPEED, "Speed"), "morse wpm words per minute keyer", UI_SET_CW_WPM, 5, 40, 1, " wpm"),
 	LIST(TRN(SET_LABEL_CW_FARNSWORTH, "Farnsworth"), "morse spacing overall speed learning", UI_SET_CW_EFF_WPM,
@@ -7360,6 +7366,12 @@ static const set_item_t s_cw[] = {
 	// How long a straight key's carrier stays up after the last release (morse.md 8)
 	NUMBER(TRN(SET_LABEL_CW_KEY_HANG, "Key hang"), "morse straight key break-in delay carrier side key", UI_SET_CW_HANG_MS,
 	       300, 3000, 100, " ms"),
+#if CONFIG_CW_PADDLES
+	// Key by hand's keyer and which paddle is which (morse.md 10)
+	LIST(TRN(SET_LABEL_CW_PADDLE, "Paddle"), "morse keyer iambic ultimatic bug squeeze mode", UI_SET_CW_PADDLE,
+	     v_cwpaddle, n_cwpaddle),
+	TOGGLE(TRN(SET_LABEL_CW_PADDLE_SWAP, "Swap paddles"), "morse keyer left handed reverse dit dah", UI_SET_CW_PADDLE_SWAP),
+#endif
 };
 #endif
 #if CONFIG_DMR && CONFIG_DMR_PRIVACY
@@ -8698,7 +8710,7 @@ const ui_scr_def_t *const ui_scr[SCR_COUNT] = {
 #if CONFIG_CW_SEND
 	[SCR_CW_COMPOSE] = &cw_compose_screen, [SCR_CW_SEND] = &cw_send_screen,
 #endif
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	[SCR_CW_KEY] = &cw_key_screen,
 #endif
 #if CONFIG_CW_DECODE

@@ -571,7 +571,7 @@ void ui_svc_cw_stop(void)
 	radio_req_cw_stop();
 }
 
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 void ui_svc_cw_paddles(bool on)
 {
 	input_set_paddles(on);

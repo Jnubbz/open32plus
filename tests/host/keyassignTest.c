@@ -346,7 +346,7 @@ static void test_paddles(void)
 	keymap_entry_t b[2] = { { 7, ACT_BACK, ACT_BACK, false, true, 0 }, { 8, ACT_NAV_UP, ACT_NAV_UP, false, true, 0 } };
 	input_paddle_map(b, 2);
 	CHECK(b[0].short_action == ACT_CW_DAH && b[0].raw_edges && !b[0].repeat && b[1].short_action == ACT_NAV_UP);
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	input_event_t ev = { .action = ACT_CW_DIT, .gesture = GESTURE_DOWN };
 	input_forward(&ev, true);	// PTT locked out: no press
 	ev.gesture = GESTURE_UP;

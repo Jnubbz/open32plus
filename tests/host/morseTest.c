@@ -11,7 +11,7 @@
 #include "radio/morse_decode.h"
 #include "radio/cw_hand.h"
 #include "radio/cw_qso.h"
-#include "radio/cw_bug.h"
+#include "radio/cw_keyer.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -473,7 +473,7 @@ static void test_qso(void)
 	CHECK(cw_qso_fill("{THEM}", "W1AW", out, 5) == 4 && cw_qso_fill("{THEM}", "W1AW", out, 4) == 0);
 }
 
-// ---- The bug (cw_bug.c, morse.md 10): the dit paddle's dits at the keyer's speed, each whole; the dah by hand ----
+// ---- The bug (cw_keyer.c, morse.md 10): the dit paddle's dits at the keyer's speed, each whole; the dah by hand ----
 
 // The key's edges the bug made, as "D<ms> U<ms> ..." from the delay line's queue
 static void bug_edges(const cw_hand_t *h, char *out, size_t max)
@@ -487,64 +487,114 @@ static void bug_edges(const cw_hand_t *h, char *out, size_t max)
 	}
 }
 
-static void test_bug(void)
+static void test_keyer(void)
 {
-	cw_bug_t b;
+	cw_keyer_t b;
 	cw_hand_t h;
 	char e[200];
 	const uint32_t dot = 60;	// 20 wpm
 	// The dit paddle held 250 ms: dits at 1000, 1120, 1240 (still held at 1240), each 60 ms, then it stops at 1360
-	cw_bug_start(&b, 1000);
+	cw_keyer_start(&b, CW_KEYER_BUG, 1000);
 	cw_hand_start(&h, 1000);
-	CHECK(cw_bug_edge(&b, false, true, 1000) && cw_bug_edge(&b, false, false, 1250));
-	CHECK(cw_bug_run(&b, 2000, dot, &h));
+	CHECK(cw_keyer_edge(&b, false, true, 1000) && cw_keyer_edge(&b, false, false, 1250));
+	CHECK(cw_keyer_run(&b, 2000, dot, &h));
 	bug_edges(&h, e, sizeof e);
 	CHECK(strcmp(e, "D1000 U1060 D1120 U1180 D1240 U1300") == 0);
 	if (strcmp(e, "D1000 U1060 D1120 U1180 D1240 U1300") != 0) printf("  got %s\n", e);
-	CHECK(cw_bug_idle(&b));
+	CHECK(cw_keyer_idle(&b));
 	// A tap shorter than a dit still makes one whole dit; the dah is as long as it is held
-	cw_bug_start(&b, 0);
+	cw_keyer_start(&b, CW_KEYER_BUG, 0);
 	cw_hand_start(&h, 0);
-	CHECK(cw_bug_edge(&b, false, true, 100) && cw_bug_edge(&b, false, false, 120));
-	CHECK(cw_bug_edge(&b, true, true, 400) && cw_bug_edge(&b, true, false, 637));
-	CHECK(cw_bug_run(&b, 1000, dot, &h));
+	CHECK(cw_keyer_edge(&b, false, true, 100) && cw_keyer_edge(&b, false, false, 120));
+	CHECK(cw_keyer_edge(&b, true, true, 400) && cw_keyer_edge(&b, true, false, 637));
+	CHECK(cw_keyer_run(&b, 1000, dot, &h));
 	bug_edges(&h, e, sizeof e);
 	CHECK(strcmp(e, "D100 U160 D400 U637") == 0);
 	if (strcmp(e, "D100 U160 D400 U637") != 0) printf("  got %s\n", e);
 	// Run in pieces as the radio core does, with an edge arriving after its time was passed: the same key
-	cw_bug_start(&b, 0);
+	cw_keyer_start(&b, CW_KEYER_BUG, 0);
 	cw_hand_start(&h, 0);
-	CHECK(cw_bug_edge(&b, false, true, 10));
+	CHECK(cw_keyer_edge(&b, false, true, 10));
 	for (uint32_t t = 10; t <= 200; t += 10) {
-		CHECK(cw_bug_run(&b, t, dot, &h));
+		CHECK(cw_keyer_run(&b, t, dot, &h));
 	}
-	CHECK(cw_bug_edge(&b, false, false, 190));	// released at 190, heard at 200: the third dit at 250 doesn't start
+	CHECK(cw_keyer_edge(&b, false, false, 190));	// released at 190, heard at 200: the third dit at 250 doesn't start
 	for (uint32_t t = 210; t <= 400; t += 10) {
-		CHECK(cw_bug_run(&b, t, dot, &h));
+		CHECK(cw_keyer_run(&b, t, dot, &h));
 	}
 	bug_edges(&h, e, sizeof e);
 	CHECK(strcmp(e, "D10 U70 D130 U190") == 0);
 	if (strcmp(e, "D10 U70 D130 U190") != 0) printf("  got %s\n", e);
-	CHECK(cw_bug_idle(&b));
+	CHECK(cw_keyer_idle(&b));
 	// Both paddles: the dah holds the key down through the dits; the dits go on after it
-	cw_bug_start(&b, 0);
+	cw_keyer_start(&b, CW_KEYER_BUG, 0);
 	cw_hand_start(&h, 0);
-	CHECK(cw_bug_edge(&b, false, true, 0) && cw_bug_edge(&b, true, true, 30) && cw_bug_edge(&b, true, false, 200) &&
-	      cw_bug_edge(&b, false, false, 250));
-	CHECK(cw_bug_run(&b, 1000, dot, &h));
+	CHECK(cw_keyer_edge(&b, false, true, 0) && cw_keyer_edge(&b, true, true, 30) && cw_keyer_edge(&b, true, false, 200) &&
+	      cw_keyer_edge(&b, false, false, 250));
+	CHECK(cw_keyer_run(&b, 1000, dot, &h));
 	bug_edges(&h, e, sizeof e);
 	CHECK(strcmp(e, "D0 U200 D240 U300") == 0);
 	if (strcmp(e, "D0 U200 D240 U300") != 0) printf("  got %s\n", e);
 	// Held: not idle; a full paddle queue refuses
-	cw_bug_start(&b, 0);
+	cw_keyer_start(&b, CW_KEYER_BUG, 0);
 	cw_hand_start(&h, 0);
-	CHECK(cw_bug_edge(&b, true, true, 0) && cw_bug_run(&b, 50, dot, &h) && !cw_bug_idle(&b));
-	cw_bug_start(&b, 0);
+	CHECK(cw_keyer_edge(&b, true, true, 0) && cw_keyer_run(&b, 50, dot, &h) && !cw_keyer_idle(&b));
+	cw_keyer_start(&b, CW_KEYER_BUG, 0);
 	bool ok = true;
-	for (unsigned i = 0; i < CW_BUG_EDGES; i++) {
-		ok = ok && cw_bug_edge(&b, true, (i & 1u) == 0, i);
+	for (unsigned i = 0; i < CW_KEYER_EDGES; i++) {
+		ok = ok && cw_keyer_edge(&b, true, (i & 1u) == 0, i);
 	}
-	CHECK(ok && !cw_bug_edge(&b, true, true, 99));
+	CHECK(ok && !cw_keyer_edge(&b, true, true, 99));
+}
+
+// The keyer's other modes: (mode, paddle edges "D<ms>"/"U<ms>" with d for the dit paddle and a for the dah one) and the
+// key's edges at 20 wpm (60 ms dots, 180 ms dahs, 60 ms spaces)
+static void keyer_case(uint8_t mode, const char *paddles, const char *want)
+{
+	cw_keyer_t k;
+	cw_hand_t h;
+	char e[200];
+	cw_keyer_start(&k, mode, 0);
+	cw_hand_start(&h, 0);
+	for (const char *p = paddles; *p;) {
+		bool dah = *p++ == 'a';
+		bool down = *p++ == 'D';
+		uint32_t ms = (uint32_t)strtoul(p, (char **)&p, 10);
+		CHECK(cw_keyer_edge(&k, dah, down, ms));
+		while (*p == ' ') p++;
+	}
+	for (uint32_t t = 10; t <= 2000; t += 10) {
+		CHECK(cw_keyer_run(&k, t, 60, &h));	// as the radio core runs it, a tick at a time
+	}
+	bug_edges(&h, e, sizeof e);
+	CHECK(strcmp(e, want) == 0);
+	if (strcmp(e, want) != 0) printf("  mode %u, %s: got \"%s\", want \"%s\"\n", mode, paddles, e, want);
+	CHECK(cw_keyer_idle(&k));
+}
+
+static void test_keyer_modes(void)
+{
+	for (uint8_t m = CW_KEYER_IAMBIC_B; m <= CW_KEYER_ULTIMATIC; m++) {
+		// One paddle held: its element repeats, each whole; released, the one running ends with its space
+		keyer_case(m, "dD0 dU250", "D0 U60 D120 U180 D240 U300");
+		keyer_case(m, "aD0 aU500", "D0 U180 D240 U420 D480 U660");
+		keyer_case(m, "dD0 dU5", "D0 U60");	// a tap: one whole dit
+	}
+	// Squeezed and held: iambic alternates; ultimatic repeats the paddle pressed last
+	keyer_case(CW_KEYER_IAMBIC_B, "dD0 aD10 dU400 aU400", "D0 U60 D120 U300 D360 U420");
+	keyer_case(CW_KEYER_IAMBIC_A, "dD0 aD10 dU400 aU400", "D0 U60 D120 U300 D360 U420");
+	keyer_case(CW_KEYER_ULTIMATIC, "dD0 aD10 dU500 aU500", "D0 U60 D120 U300 D360 U540");
+	keyer_case(CW_KEYER_ULTIMATIC, "aD0 dD10 aU500 dU500", "D0 U180 D240 U300 D360 U420 D480 U540");
+	// A squeeze let go inside the first element: B sends the other element after it, A stops
+	keyer_case(CW_KEYER_IAMBIC_B, "dD0 aD20 dU50 aU50", "D0 U60 D120 U300");
+	keyer_case(CW_KEYER_IAMBIC_A, "dD0 aD20 dU50 aU50", "D0 U60");
+	// The other paddle tapped during an element: B remembers it, A doesn't
+	keyer_case(CW_KEYER_IAMBIC_B, "aD0 dD50 dU70 aU170", "D0 U180 D240 U300");
+	keyer_case(CW_KEYER_IAMBIC_A, "aD0 dD50 dU70 aU170", "D0 U180");
+	// A squeeze from rest starts with the paddle pressed last
+	keyer_case(CW_KEYER_IAMBIC_B, "aD0 dD0 aU30 dU30", "D0 U60");
+	// An unknown mode is iambic B
+	keyer_case(9, "dD0 aD20 dU50 aU50", "D0 U60 D120 U300");
 }
 
 int main(void)
@@ -558,7 +608,8 @@ int main(void)
 	test_decode();
 	test_hand();
 	test_qso();
-	test_bug();
+	test_keyer();
+	test_keyer_modes();
 	if (failures != 0) {
 		printf("morseTest: %d failure(s)\n", failures);
 		return 1;

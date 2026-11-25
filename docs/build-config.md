@@ -94,7 +94,7 @@ below are for an STM32F4 radio.
 | `CONFIG_FM_TX_TONES` | = FM (n where the tone path isn't written) | roger beep and 1750 Hz burst sent over the air (`docs/spec/radio-features.md` 3) |
 | `CONFIG_DTMF` | = FM (n where the tone path isn't written) | DTMF digits sent from the keys while PTT is held on FM (`docs/spec/radio-features.md` 3.7) |
 | `CONFIG_CW_SEND` | = FM_TX_TONES | CW messages: canned or typed text keyed as Morse (MCW) on an FM channel, Settings > CW (`docs/spec/morse.md` 5). About 300 bytes of RAM |
-| `CONFIG_CW_BUG` | = CW_SEND | Send CW > Key by hand: a semi-automatic key (bug) on the OK and Back keys. OK sends dits at the keyer's speed while held, Back a hand-timed dah (`docs/spec/morse.md` 10) |
+| `CONFIG_CW_PADDLES` | = CW_SEND | Send CW > Key by hand: a paddle keyer on the OK and Back keys, iambic B, iambic A, ultimatic or bug, paddles swappable (`docs/spec/morse.md` 10) |
 | `CONFIG_CW_QSO` | = CW_SEND and CW_DECODE | The CW QSO helper: Decode CW > OK lists the callsigns heard, and picking one opens exchange lines with it filled in, sent as CW messages (`docs/spec/morse.md` 9) |
 | `CONFIG_CW_DECODE` | = APRS_RX | The CW decoder: Messages > Decode CW shows Morse decoded from the FM channel (`docs/spec/morse.md` 7). Needs APRS_RX's received-audio path. About 880 bytes of RAM |
 | `CONFIG_VOX` | = FM (n where the mic level hook isn't written) | voice-operated transmit on FM, from the microphone level (`hal_power_t.mic_level`; `docs/spec/radio-features.md` 3.4) |

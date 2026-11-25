@@ -18,7 +18,7 @@ void input_forward(const input_event_t *ev, bool ptt_blocked)
 			(ev->gesture == GESTURE_UP || (ev->gesture == GESTURE_DOWN && !ptt_blocked))) {
 		radio_req_cw_key(ev->gesture == GESTURE_DOWN);
 #endif
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	} else if ((ev->action == ACT_CW_DIT || ev->action == ACT_CW_DAH) &&
 			(ev->gesture == GESTURE_UP || (ev->gesture == GESTURE_DOWN && !ptt_blocked))) {
 		radio_req_cw_paddle(ev->action == ACT_CW_DAH, ev->gesture == GESTURE_DOWN);

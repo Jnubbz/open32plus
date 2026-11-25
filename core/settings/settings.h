@@ -267,7 +267,11 @@ typedef struct {
 	// A straight key's and the bug's delay in 100 ms steps (morse.md 8): each press and release goes on air this much
 	// later. Appended: an older record reads 0, live keying
 	uint8_t cw_key_delay;
-	uint8_t reserved12[3];		// 0
+	// The paddles (morse.md 10): the keyer's mode, cw_keyer_mode_t (0 iambic B, 1 iambic A, 2 ultimatic, 3 bug), and
+	// whether the dit and dah paddles change places. Were reserved12[0..1]: an older record reads iambic B, not swapped
+	uint8_t cw_paddle;
+	uint8_t cw_paddle_swap;
+	uint8_t reserved12[1];		// 0
 } settings_t;
 
 // Pages: settings_t is stored as records of SETTINGS_PAGE_BYTES each (settings-store.md 2.1). Only the pages its size

@@ -64,8 +64,8 @@ spec = "docs/spec/morse.md"
 switch = "CW_QSO"
 spec = "docs/spec/morse.md"
 
-[feature.cw_bug]
-switch = "CW_BUG"
+[feature.cw_paddles]
+switch = "CW_PADDLES"
 spec = "docs/spec/morse.md"
 
 [feature.vox]

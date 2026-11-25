@@ -3970,6 +3970,11 @@ msgid "Dual-path RX"
 msgstr "双路接收"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_VALUE_BUG"
+msgid "Bug"
+msgstr "Bug 电键"
+
+#: core/ui/ui_menus.c
 msgctxt "SIG_VALUE_SPEAKER"
 msgid "Speaker"
 msgstr "扬声器"
@@ -4233,6 +4238,16 @@ msgstr "按键延时"
 msgctxt "SET_LABEL_CW_KEY_HANG"
 msgid "Key hang"
 msgstr "保持时间"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_PADDLE"
+msgid "Paddle"
+msgstr "电键模式"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_PADDLE_SWAP"
+msgid "Swap paddles"
+msgstr "电键对调"
 
 #: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"

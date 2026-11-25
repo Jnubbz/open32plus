@@ -3968,6 +3968,11 @@ msgid "Dual-path RX"
 msgstr "RX doble vía"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_VALUE_BUG"
+msgid "Bug"
+msgstr "Semiautomático"
+
+#: core/ui/ui_menus.c
 msgctxt "SIG_VALUE_SPEAKER"
 msgid "Speaker"
 msgstr "Altavoz"
@@ -4231,6 +4236,16 @@ msgstr "Retardo manipulador"
 msgctxt "SET_LABEL_CW_KEY_HANG"
 msgid "Key hang"
 msgstr "Retardo final"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_PADDLE"
+msgid "Paddle"
+msgstr "Manipulador"
+
+#: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_PADDLE_SWAP"
+msgid "Swap paddles"
+msgstr "Invertir paletas"
 
 #: core/ui/ui_menus.c
 msgctxt "SET_LABEL_PRIVACY_KEY_TYPE"

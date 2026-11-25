@@ -305,7 +305,7 @@
   "cw_key": {
    "group": "messages",
    "needs": [
-    "CW_BUG"
+    "CW_PADDLES"
    ]
   },
   "cw_decode": {

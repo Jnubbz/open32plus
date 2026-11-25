@@ -1113,7 +1113,7 @@ static const flow_t flows[] = {
 	{ "C Back from a written CW message returns to the CW list", "ok 2 " TO_SEND_CW " ok up ok 2 ok", "back",
 	  "screen=cw-compose", 1, false },
 	{ "C Back from the CW list returns to Messages", "ok 2 " TO_SEND_CW " ok", "back", "screen=messages", 1, false },
-#if CONFIG_CW_BUG
+#if CONFIG_CW_PADDLES
 	// Key by hand (morse.md 10): before Write..., the paddles while open; Back is the dah paddle there, so Up, Down
 	// and # close it (in the sim OK and Back stay unmapped and do nothing). The sim's channel is DMR
 	{ "C Key by hand opens the bug", "ok 2 " TO_SEND_CW " ok", "up up ok",
