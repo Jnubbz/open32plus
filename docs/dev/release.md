@@ -75,7 +75,7 @@ edit them into a short list of what changed for users.
 |---|---|
 | `rfoundry-<board>-<version>.bin` | The raw image `make BOARD=<board>` built, linked for the board's application base. No codec. A board with a first stage releases `rfoundry_<board>_install.bin`, the first stage then the application; `tools/release.py` refuses the application alone |
 | `rfoundry-<board>-<version>.json` | Its manifest (below) |
-| `rfoundry-<version>-<os>-<arch>[.exe]` | rfoundry, one file per system: `linux-x86_64`, `macos-arm64`, `macos-x86_64`, `windows-x86_64` |
+| `rfoundry-<version>-<os>-<arch>[.exe]` | rfoundry, one file per system: `linux-x86_64`, `macos-x86_64` (Apple silicon too, under Rosetta), `windows-x86_64` |
 | `SHA256SUMS` | SHA-256 of every file above |
 | `RadioFoundry-manual-<version>.pdf` | The user manual (the manual workflow) |
 
