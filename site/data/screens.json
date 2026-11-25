@@ -302,6 +302,12 @@
     "CW_SEND"
    ]
   },
+  "cw_key": {
+   "group": "messages",
+   "needs": [
+    "CW_BUG"
+   ]
+  },
   "cw_decode": {
    "group": "messages",
    "needs": [

@@ -353,6 +353,7 @@
  "screen.messages_empty": "Messaggi, vuoto",
  "screen.cw_compose": "Invia CW: messaggi predefiniti",
  "screen.cw_send": "Invio CW",
+ "screen.cw_key": "Manipolare CW a mano",
  "screen.cw_decode": "Decodifica CW",
  "screen.qso_calls": "Rispondere in CW: nominativi sentiti",
  "screen.qso": "Rispondere in CW: lo scambio",

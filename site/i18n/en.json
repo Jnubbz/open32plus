@@ -353,6 +353,7 @@
  "screen.messages_empty": "Messages, empty",
  "screen.cw_compose": "Send CW: canned messages",
  "screen.cw_send": "Sending CW",
+ "screen.cw_key": "Keying CW by hand",
  "screen.cw_decode": "Decoding CW",
  "screen.qso_calls": "Replying in CW: the calls heard",
  "screen.qso": "Replying in CW: the exchange",
