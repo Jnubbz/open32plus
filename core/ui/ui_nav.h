@@ -49,7 +49,9 @@ typedef enum {
 #if CONFIG_CW_SEND
 	SCR_CW_COMPOSE,			// Messages > Send CW: canned CW messages and Write... (docs/spec/morse.md 5)
 	SCR_CW_SEND,			// a CW message keying, or what became of it; Back stops it
-	SCR_CW_DECODE,			// Morse decoded from the FM channel while it is open
+#endif
+#if CONFIG_CW_DECODE
+	SCR_CW_DECODE,			// Morse decoded from the FM channel while it is open (morse.md 7; on with APRS_RX)
 #endif
 #if CONFIG_BACKLIGHT_TEST
 	SCR_BL_TEST,			// Settings > Advanced > Backlight tests

@@ -19,6 +19,8 @@
 #include "storage/storage.h"
 #if CONFIG_CW_SEND
 #include "radio/radio_cwmsg.h"
+#endif
+#if CONFIG_CW_DECODE
 #include "radio/radio_cwdec.h"
 #endif
 #if CONFIG_VOICE_CAPTURE

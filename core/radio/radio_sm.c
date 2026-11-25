@@ -66,7 +66,9 @@
 #endif
 #if CONFIG_CW_SEND
 #include "radio/radio_cwmsg.h"	// the CW message handover (docs/spec/morse.md 5)
-#include "radio/radio_cwdec.h"	// the CW decoder (docs/spec/morse.md 7)
+#endif
+#if CONFIG_CW_DECODE
+#include "radio/radio_cwdec.h"	// the CW decoder (docs/spec/morse.md 7): on with APRS_RX, CW_SEND or not
 #endif
 #if CONFIG_SFR_CWID
 static void cw_cancel(radio_sm_t *sm);
