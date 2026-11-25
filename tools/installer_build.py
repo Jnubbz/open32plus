@@ -170,6 +170,8 @@ def build(out, fwdir=None, commit=None, repo_url=REPO_URL, editor=None):
     os.makedirs(os.path.join(out, "data"))
     for name in PAGE:
         shutil.copy2(os.path.join(SRC, name), os.path.join(out, name))
+    # The site's icon: the page's favicon and the header's brand, as the codeplug editor shows it
+    shutil.copy2(os.path.join(ROOT, "site", "static", "img", "icon.svg"), os.path.join(out, "icon.svg"))
     mods = modules()
     for p in mods:
         dst = os.path.join(out, "js", os.path.relpath(p, JS))

@@ -73,6 +73,49 @@ export function crc32(bytes, crc = 0) {
 	return ~crc >>> 0;
 }
 
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Waits that keep their time in a hidden tab. Chrome runs a hidden tab's timers at most once a second, and after a few
+// minutes once a minute, so a flash that waits 2 ms between polls of the cable took a second for each one and the radio
+// gave up on the install when the window was minimized or another tab was in front. A dedicated worker's timers aren't
+// held back that way, so in a browser the wait is timed there; anywhere without workers (Node, the tests) it is a plain
+// setTimeout. One worker for the page, made on the first wait
+let timerWorker;	// undefined: not tried yet; null: none (no Worker, or it couldn't start)
+let timerSeq = 0;
+const timerWaits = new Map();
+
+function workerTimers() {
+	if (timerWorker !== undefined) return timerWorker;
+	timerWorker = null;
+	if (typeof Worker === "undefined" || typeof Blob === "undefined" || typeof URL === "undefined" ||
+	    typeof URL.createObjectURL !== "function") return null;
+	try {
+		const src = "onmessage = (e) => setTimeout(() => postMessage(e.data.id), e.data.ms);";
+		const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+		w.onmessage = (e) => {
+			const done = timerWaits.get(e.data);
+			timerWaits.delete(e.data);
+			done?.();
+		};
+		w.onerror = () => {	// a page that refuses workers: the waits still pending end now, later ones use setTimeout
+			timerWorker = null;
+			for (const done of timerWaits.values()) done();
+			timerWaits.clear();
+		};
+		timerWorker = w;
+	} catch (e) {
+		timerWorker = null;
+	}
+	return timerWorker;
+}
+
+export const sleep = (ms) => new Promise((r) => {
+	const w = workerTimers();
+	if (!w) {
+		setTimeout(r, ms);
+		return;
+	}
+	const id = ++timerSeq;
+	timerWaits.set(id, r);
+	w.postMessage({ id, ms });
+});
 
 export const ascii = (bytes) => new TextDecoder("latin1").decode(bytes);

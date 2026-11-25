@@ -87,9 +87,14 @@ export class BfLoader {
 	}
 
 	// What arrived, up to n bytes, once n are there or the time is up (serial_loader read_exact)
+	// Woken by the bytes as they come where the stream can (arrived()), so a hidden tab waits no longer than a shown one
 	async readExact(n, timeout) {
 		const end = Date.now() + timeout;
-		while (this.s.buf.length < n && Date.now() < end) await sleep(2);
+		while (this.s.buf.length < n && Date.now() < end) {
+			const left = end - Date.now();
+			if (typeof this.s.arrived === "function") await Promise.race([this.s.arrived(), sleep(Math.min(left, 50))]);
+			else await sleep(2);
+		}
 		return this.s.take(n);
 	}
 
