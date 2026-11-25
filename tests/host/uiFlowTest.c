@@ -1130,6 +1130,7 @@ static const flow_t flows[] = {
 	  "screen=message-text shows=abc", 3, false },
 	{ "C Settings > CW before Signaling tones", "ok 7", "up up up ok", "screen=group shows=Farnsworth shows=800_Hz", 4, false },
 	{ "C Settings > CW has the lead-in", "ok 7 up up up ok", "", "shows=Lead-in shows=600_ms", 0, false },
+	{ "C Settings > CW has the sidetone", "ok 7 up up up ok", "", "shows=Sidetone", 0, false },
 #endif
 	{ "A new APRS message opens its composer", "ok 2", "ok", "screen=compose shows=To_callsign", 1, false },
 	{ "A new APRS message needs our callsign", "aprs:nocall ok 2", "", "hides=New_APRS_message", 0, false },

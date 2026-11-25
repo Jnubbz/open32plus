@@ -458,6 +458,8 @@ typedef struct {
 				// APRS beacon. It doesn't light the screen (radio_view_wakes)
 	bool aprs_tx;		// APRS has keyed the FM transmitter; the channel in ch is not the one on air
 	bool cw_tx;		// a CW message is being keyed on the channel (CONFIG_CW_SEND)
+	uint16_t cw_key_late;	// the last hand-keyed session's paddle edges that came after the keyer passed their time
+	uint16_t cw_key_drop;	// hand-keyed edges the timed tone had no room for, since start (morse.md 8.2)
 	uint32_t last_tx_ms;	// hal_millis() when the last transmission began, 0 = none yet
 	uint16_t tot_s;		// TX time-out, 0 = none
 	uint32_t last_rx_ms;	// hal_millis() at the end of the last reception, 0 = none yet
@@ -755,6 +757,8 @@ void radio_req_volume_hold(bool hold);
 // Whether the MCU reads a volume knob (the level follows it): Settings > Key lock > Knob when locked is shown only then
 bool radio_volume_knob(void);
 bool radio_volume_soft(void);
+// Whether sent CW can play on the radio's own speaker (hal_afsk_t.tone_side): Settings > CW > Sidetone is shown only then
+bool radio_cw_sidetone_capable(void);
 // Whether the MCU can set the speaker level at all (the board has the hook): knob radios accept an override
 bool radio_volume_settable(void);
 uint8_t radio_volume_percent(uint8_t step);

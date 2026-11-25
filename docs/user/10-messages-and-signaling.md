@@ -147,8 +147,11 @@ A side key can be a straight key: hold it and the tone goes out on the FM channe
 4. The transmitter goes off once you have let go of the key for **Key hang** (1 s by default). Press PTT to stop at
    once.
 
-It works only on an FM channel, like CW messages, and keys the channel's TX subtone too. The radio's speaker doesn't play
-your keying yet: listen on a second radio. Key delay and Key hang are in **Settings > CW** ([Settings](17-settings.md#cw)). The
+It works only on an FM channel, like CW messages, and keys the channel's TX subtone too.
+
+**Sidetone.** On a radio that has it, the speaker plays the CW you send, keyed by hand or sent as a message, so you
+hear your own keying at once instead of on a second radio. It is on by default; turn it off in **Settings > CW >
+Sidetone**. The setting is there only on radios that have it ([feature-matrix.md](../feature-matrix.md)). Key delay and Key hang are in **Settings > CW** ([Settings](17-settings.md#cw)). The
 details are in [morse.md](../spec/morse.md) 8.
 
 ## Decoding CW

@@ -38,6 +38,10 @@ static volatile uint32_t raw_keys;
 static volatile int32_t enc_total;
 static int16_t enc_carry;		// detents the full queue couldn't take: sent with the next scan (input task only)
 static volatile uint32_t enc_deferred;	// how often that happened
+// How long board.input->scan() took: it waits for a bus the keys share (key rows that are LCD data lines, held for
+// a redraw), and a key's edge is that much late (debug link input.scan_*; morse.md 8.2)
+static volatile uint16_t scan_max_ms;
+static volatile uint32_t scan_slow;	// scans that took 5 ms or more
 
 // Injection state, shared with the callers of input_inject_* (any task): every access in a critical section
 static input_inj_state_t inj = { .idle = INPUT_INJECT_MIN_SCANS };	// generic injected keys
@@ -146,6 +150,13 @@ static void input_task(void *arg)
 		int8_t ienc;
 		uint32_t inj_keys = take_injected(now, &ienc);
 		uint32_t keys = board.input->scan();
+		uint32_t took = hal_millis() - now;
+		if (took > scan_max_ms) {
+			scan_max_ms = (uint16_t)(took > UINT16_MAX ? UINT16_MAX : took);
+		}
+		if (took >= 5u) {
+			scan_slow++;
+		}
 		int8_t enc = board.input->encoder != NULL ? board.input->encoder() : 0;	// keypad-only radios have none
 		if (board.input->position != NULL) {
 			switch_poll(now);
@@ -305,6 +316,12 @@ void input_switch_hold(uint16_t zone)
 int8_t input_switch_pos(void)
 {
 	return switch_pos;
+}
+
+void input_scan_stats(uint32_t *max_ms, uint32_t *slow)
+{
+	*max_ms = scan_max_ms;
+	*slow = scan_slow;
 }
 
 bool input_encoder_stats(hal_encoder_stats_t *st, uint32_t *deferred)

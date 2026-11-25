@@ -7225,7 +7225,14 @@ static void hotspot_follow_power(radio_sm_t *sm)
 // still did with a receiver's battery save on (morse.md 5.2)
 #define CW_TAIL_MS		150	// and after the last
 enum { CW_OFF = 0, CW_KEYING, CW_TAIL, CW_HAND };	// CW_HAND: a straight key or the bug (morse.md 8, 10)
-#define CW_KEYER_SLACK_MS		50	// the bug runs this far behind now: a paddle edge is in the queue by then
+// The keyer runs this far behind now, so a paddle's edge is in the queue before the keyer passes its time. The edge
+// is stamped after its scan (input_task.c) and the radio task wakes for it; was 50 ms before the stamp moved there.
+// The debug link's cw.key_late counts the edges that came later than this (morse.md 10.3)
+#define CW_KEYER_SLACK_MS		20
+// A hand-keyed edge plays this long after its time on a tone keyed at a time (hal_afsk_t.tone_key_at): the radio
+// tick that hands it over (10 ms), the 4 ms chunk the mapping is read in, and 4 ms to spare (morse.md 8.2). The
+// keyer's edges are CW_KEYER_SLACK_MS older still when handed over
+#define CW_HAND_LAT_MS			18
 #if CONFIG_CW_SEND
 // A message's tone level through the audio path (hal_afsk_t level, 50 = about 3 kHz peak): near the HR_C7000 tone
 // generator's 1.1 kHz at 12.5 kHz and 1.5 kHz at 25 kHz that the CW IDs use. Unmeasured on the air
@@ -7254,6 +7261,23 @@ static void cw_key(radio_sm_t *sm, bool down)
 	}
 	board.radio->tx_tone(down ? sm->cw_tone_hz : 0);
 }
+
+#if CONFIG_CW_SEND
+// A hand-keyed edge (morse.md 8.2): at its own time on a tone keyed at a time, so the element keeps its length to the
+// sample; else at once, on the tick that got to it
+static void cw_key_at(radio_sm_t *sm, bool down, uint32_t at_ms, uint32_t now_ms, uint32_t lat_ms)
+{
+	if (sm->cw_audio && board.afsk->tone_key_at != NULL) {
+		sm->cw_key = down;
+		if (!board.afsk->tone_key_at(down, at_ms, now_ms, lat_ms)) {
+			sm->cw_key_dropped++;
+			sm->view.cw_key_drop = sm->cw_key_dropped;
+		}
+		return;
+	}
+	cw_key(sm, down);
+}
+#endif
 
 static void cw_ended(radio_sm_t *sm, uint8_t why, uint32_t ms)
 {
@@ -7429,6 +7453,13 @@ static bool cw_begin(radio_sm_t *sm, uint32_t hz, radio_bw_t bw, uint8_t power, 
 			  board.afsk->tone_start(sm->cw_tone_hz, bw == RADIO_BW_25K ? CW_AUDIO_LEVEL_WIDE : CW_AUDIO_LEVEL);
 		if (!tone_on) {
 			sm->cw_audio = false;	// nothing to stop: cw_finish unkeys
+		} else if (board.afsk->tone_side != NULL) {
+			// The sidetone (Settings > CW > Sidetone, on unless turned off): the speaker plays what goes on the
+			// air, so a hand-keying operator hears it at once. tx_stop turns it off (morse.md 5.2)
+			settings_read(&st_copy);
+			if ((st_copy.cw_flags & SETTINGS_CW_SIDETONE_OFF) == 0) {
+				board.afsk->tone_side(true);
+			}
 		}
 	} else
 #endif
@@ -7706,7 +7737,7 @@ static void cwpaddle_edge(radio_sm_t *sm, const radio_req_t *req, uint32_t now_m
 		}
 		sm->cw_paddles = true;
 		settings_read(st);
-		sm->paddle_swap = st->cw_paddle_swap != 0;
+		sm->paddle_swap = (st->cw_flags & SETTINGS_CW_PADDLE_SWAP) != 0;
 		cw_keyer_start(&sm->keyer, st->cw_paddle, req->arg2);
 	}
 	dah = dah != sm->paddle_swap;
@@ -7739,14 +7770,25 @@ static void cw_service(radio_sm_t *sm, uint32_t now_ms)
 			return;
 		}
 #endif
+		uint32_t lat = CW_HAND_LAT_MS;
+#if CONFIG_CW_PADDLES
+		lat += sm->cw_paddles ? CW_KEYER_SLACK_MS : 0u;
+		if (sm->cw_paddles && sm->view.cw_key_late != sm->keyer.late) {
+			sm->view.cw_key_late = sm->keyer.late;
+		}
+#endif
+		bool down;
+		uint32_t at;
+		while (cw_hand_next(&sm->hand, now_ms, sm->hand_lead_ms, &down, &at)) {
+			if (down != sm->cw_key) {
+				cw_key_at(sm, down, at, now_ms, lat);
+			}
+		}
 		bool done;
-		bool key = cw_hand_poll(&sm->hand, now_ms, sm->hand_lead_ms, sm->hand_hang_ms, &done);
+		(void)cw_hand_poll(&sm->hand, now_ms, sm->hand_lead_ms, sm->hand_hang_ms, &done);
 #if CONFIG_CW_PADDLES
 		done = done && (!sm->cw_paddles || cw_keyer_idle(&sm->keyer));
 #endif
-		if (key != sm->cw_key) {
-			cw_key(sm, key);
-		}
 		if (done) {
 			cw_finish(sm, CW_END_SENT, now_ms - sm->cw_start_ms, now_ms);
 		}
@@ -9629,6 +9671,15 @@ void radio_sm_request(radio_sm_t *sm, const radio_req_t *req, uint32_t now_ms)
 		break;
 	}
 	persist(sm, now_ms);
+}
+
+bool radio_cw_sidetone_capable(void)
+{
+#if CONFIG_CW_SEND
+	return cw_audio_path() && board.afsk->tone_side != NULL;
+#else
+	return false;
+#endif
 }
 
 bool radio_volume_soft(void)

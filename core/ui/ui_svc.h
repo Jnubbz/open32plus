@@ -54,6 +54,7 @@ extern radio_view_t ui_svc_view;
 #define UI_FEAT_REF_TRIM	(1u << 20)	// a reference trim (hal_radio_t.ref_trim, radio/ref_trim.h): Freq trim setting
 #define UI_FEAT_P25		(1u << 22)	// P25 on this board (CONFIG_P25, radio_p25_fits): the VFO's mode tile offers it
 #define UI_FEAT_NXDN		(1u << 23)	// NXDN on this board (CONFIG_NXDN, radio_nxdn_fits): the same
+#define UI_FEAT_CW_SIDETONE	(1u << 24)	// a CW sidetone (radio_cw_sidetone_capable): Settings > CW > Sidetone
 uint32_t ui_svc_features(void);
 // The parts of it each package reports (ui_svc_features ORs them): dmr-voice / radio core, dmr-data, storage-cps,
 // radio-features
@@ -492,7 +493,8 @@ typedef enum {
 	UI_SET_CW_LEAD_MS,	// CW messages' lead-in in ms, MORSE_LEAD_MS_STEP steps (settings_t.cw_lead; stored 0 reads 600)
 	UI_SET_CW_HANG_MS,	// a straight key's hang in ms, MORSE_HANG_MS_STEP steps (settings_t.cw_hang; stored 0 reads 1000)
 	UI_SET_CW_PADDLE,	// the paddles' keyer, cw_keyer_mode_t (settings_t.cw_paddle; 0 iambic B)
-	UI_SET_CW_PADDLE_SWAP,	// OK the dah paddle, Back the dit one (settings_t.cw_paddle_swap)
+	UI_SET_CW_PADDLE_SWAP,	// OK the dah paddle, Back the dit one (settings_t.cw_flags SETTINGS_CW_PADDLE_SWAP)
+	UI_SET_CW_SIDETONE,	// the speaker plays the CW sent (cw_flags SETTINGS_CW_SIDETONE_OFF clear)
 	UI_SET_CW_KEY_DELAY_MS,	// a straight key's and the bug's delay in ms, 0..MORSE_KEY_DELAY_MS_MAX (settings_t.cw_key_delay)
 	UI_SET_COUNT
 } ui_setting_t;

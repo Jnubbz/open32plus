@@ -196,6 +196,7 @@ Between **My radio** and **Signaling tones**, on radios built with `CONFIG_CW_SE
 | Key delay | With a straight key or Key by hand: how much later your keying goes on the air, 0 to 2 s. 0 (the default) is live: you hear yourself as you key, but a slow receiver may miss your first dot. A delay lets it open first, and you hear your keying that much late |
 | Paddle | How Key by hand's paddles key: Iambic B (default), Iambic A, Ultimatic or Bug ([Keying with OK and Back](10-messages-and-signaling.md#keying-with-ok-and-back)) |
 | Swap paddles | Back the dit paddle and OK the dah one, for a left-handed operator. Default off |
+| Sidetone | The speaker plays the CW you send, so you hear your own keying as you key. Shown only on radios that have it. Default on |
 | Key hang | With a straight key or Key by hand: how long the transmitter stays on after you let go of the key, 300 ms to 3 s. Long enough to cover the gaps between your words. Default 1 s |
 | Tone | The tone keyed, 400 to 1000 Hz. Default 800 Hz |
 

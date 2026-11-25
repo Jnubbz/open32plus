@@ -19,6 +19,9 @@ typedef struct {
 	void (*listen)(bool on);
 	// PCM amplitude per level step (level 50 is the nominal 3 kHz peak; the modulator gain differs per board)
 	int16_t amp_per_level;
+	// The keyed tone to the speaker as well while it is on the air (hal_afsk_t.tone_side). NULL: no sidetone. Task
+	// level; off at tx_stop
+	void (*side)(bool on);
 } hrc_afsk_board_t;
 
 #if CONFIG_APRS_AFSK

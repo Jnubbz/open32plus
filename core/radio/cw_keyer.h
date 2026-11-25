@@ -40,6 +40,7 @@ typedef struct {
 	uint32_t el_ms;
 	bool key;			// the key made from them
 	uint32_t at;			// run up to here
+	uint16_t late;			// edges that came after the keyer had run past their time (debug link cw.key_late)
 } cw_keyer_t;
 
 // Starts with nothing held; the first edge may be at ms or later. mode: cw_keyer_mode_t (others: iambic B)

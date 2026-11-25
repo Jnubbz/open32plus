@@ -31,17 +31,30 @@ bool cw_hand_edge(cw_hand_t *h, bool down, uint32_t ms)
 	return true;
 }
 
+bool cw_hand_next(cw_hand_t *h, uint32_t now_ms, uint32_t lead_ms, bool *down, uint32_t *at_ms)
+{
+	if (h->n == 0 || (int32_t)(now_ms - (h->t[h->head] + lead_ms)) < 0) {
+		return false;
+	}
+	bool d = (h->down >> h->head) & 1u;
+	uint32_t at = h->t[h->head] + lead_ms;
+	if (!d && h->key) {
+		h->up_ms = at;
+	}
+	h->key = d;
+	h->head = (uint8_t)((h->head + 1u) % CW_HAND_EDGES);
+	h->n--;
+	*down = d;
+	*at_ms = at;
+	return true;
+}
+
 bool cw_hand_poll(cw_hand_t *h, uint32_t now_ms, uint32_t lead_ms, uint32_t hang_ms, bool *done)
 {
 	// Each edge plays at its own time plus the lead-in: the air keying is the side key's, moved later
-	while (h->n != 0 && (int32_t)(now_ms - (h->t[h->head] + lead_ms)) >= 0) {
-		bool down = (h->down >> h->head) & 1u;
-		if (!down && h->key) {
-			h->up_ms = h->t[h->head] + lead_ms;
-		}
-		h->key = down;
-		h->head = (uint8_t)((h->head + 1u) % CW_HAND_EDGES);
-		h->n--;
+	bool down;
+	uint32_t at;
+	while (cw_hand_next(h, now_ms, lead_ms, &down, &at)) {
 	}
 	*done = !h->key && h->n == 0 && !h->held && (int32_t)(now_ms - h->up_ms) >= (int32_t)hang_ms;
 	return h->key;

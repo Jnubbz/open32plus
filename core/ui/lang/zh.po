@@ -4225,6 +4225,11 @@ msgid "Tone"
 msgstr "音调"
 
 #: core/ui/ui_menus.c
+msgctxt "SET_LABEL_CW_SIDETONE"
+msgid "Sidetone"
+msgstr "本机音"
+
+#: core/ui/ui_menus.c
 msgctxt "SET_LABEL_CW_LEAD_IN"
 msgid "Lead-in"
 msgstr "前导时间"

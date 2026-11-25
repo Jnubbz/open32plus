@@ -68,6 +68,12 @@ spec = "docs/spec/morse.md"
 switch = "CW_PADDLES"
 spec = "docs/spec/morse.md"
 
+[feature.cw_sidetone]
+requires = "CW_SEND"
+spec = "docs/spec/morse.md"
+source = ["core/radio/radio_sm.c", "core/aprs/afsk.c", "platform/hrc7000/hrc_afsk.c"]
+manual = "listen: the speaker plays the keying as it goes out, at a comfortable level with the volume knob"
+
 [feature.vox]
 switch = "VOX"
 spec = "docs/spec/radio-features.md"

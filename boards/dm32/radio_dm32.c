@@ -320,12 +320,18 @@ static void dmr_disarm(void)
 #if CONFIG_APRS_AFSK
 static bool afsk_tx_route(bool on);
 static void aprs_listen_route(bool on);
+#if CONFIG_CW_SEND
+static void afsk_side(bool on);
+#endif
 
 // PCM amplitude per AFSK level step: 50 (nominal) = 450, about 3.2 kHz peak. The tones go out with the microphone on
 // the DMR path (afsk_tx_route), where they come out much hotter than with it on the FM path, with mark about 4 dB
 // under space. Bench, 25 kHz: 435 gave 3.1 kHz peak, 725 4.7 kHz; 1450 and up are limited near 5.2 kHz
 static const hrc_afsk_board_t afsk_board = {
 	.tx_route = afsk_tx_route, .listen = aprs_listen_route, .amp_per_level = 9,
+#if CONFIG_CW_SEND
+	.side = afsk_side,
+#endif
 };
 #endif
 
@@ -811,6 +817,22 @@ static bool afsk_tx_route(bool on)
 	ring_play();
 	return true;
 }
+
+#if CONFIG_CW_SEND
+// The CW sidetone (hal_afsk_t.tone_side): the prompt FIFO plays to the codec's DAC (modem-hrc7000.md 8.4), and in TX
+// the speaker listens to the codec's line out (speaker_source), so the amplifier alone should make the sidetone. The
+// microphone stays muted on the route, so the speaker can't reach the air through it. Untested on the radio: whether
+// the speaker plays it, and whether the amplifier changes the deviation, are bench checks (morse.md 5.2)
+static void afsk_side(bool on)
+{
+	if (on && (!transmitting || !afsk_tx || mode != RADIO_MODE_FM)) {
+		return;
+	}
+	uint32_t s = hrc_irq_save();
+	amp(AMP_SIDE, on);
+	hrc_irq_restore(s);
+}
+#endif
 #endif
 
 #if CONFIG_BCAST_FM

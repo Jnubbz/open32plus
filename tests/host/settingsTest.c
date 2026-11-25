@@ -933,7 +933,7 @@ static void test_settings_layout(void)
 		{ offsetof(settings_t, aes_mi_res), 408 },
 		{ offsetof(settings_t, cw_key_delay), 412 },	// appended
 		{ offsetof(settings_t, cw_paddle), 413 },	// were reserved12[0..1]
-		{ offsetof(settings_t, cw_paddle_swap), 414 },
+		{ offsetof(settings_t, cw_flags), 414 },
 	};
 	CHECK(sizeof(settings_t) == 416);
 	for (unsigned i = 0; i < sizeof(offs) / sizeof(offs[0]); i++) {

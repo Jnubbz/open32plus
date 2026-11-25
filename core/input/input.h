@@ -27,6 +27,9 @@ int8_t input_switch_pos(void);
 void input_switch_hold(uint16_t zone);
 // PTT presses the key engine produced since start, the blocked ones included (each is also in the debug log)
 uint32_t input_ptt_downs(void);
+// The longest key scan since start in ms (a wait for a bus the keys share) and how many took 5 ms or more (debug
+// link input.scan_max_ms, input.scan_slow)
+void input_scan_stats(uint32_t *max_ms, uint32_t *slow);
 // The board's encoder decoder counts (false: none) and how often the UI's queue was full and detents waited for the
 // next scan (debug link: input.enc_*)
 bool input_encoder_stats(hal_encoder_stats_t *st, uint32_t *deferred);

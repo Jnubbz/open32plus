@@ -37,6 +37,18 @@ static void send(input_emit_t emit, void *ctx, uint8_t action, uint8_t gesture, 
 	emit(&ev, ctx);
 }
 
+uint32_t input_engine_fast_mask(const input_engine_t *e)
+{
+	uint32_t m = 0;
+	for (uint8_t i = 0; i < e->keymap_len; i++) {
+		uint8_t a = e->keymap[i].short_action;
+		if (e->keymap[i].bit < 32 && (a == ACT_CW_KEY || a == ACT_CW_DIT || a == ACT_CW_DAH)) {
+			m |= 1u << e->keymap[i].bit;
+		}
+	}
+	return m;
+}
+
 void input_engine_step(input_engine_t *e, uint32_t raw, int8_t enc, uint32_t now_ms, input_emit_t emit, void *ctx)
 {
 	if (!e->started) {
@@ -48,6 +60,9 @@ void input_engine_step(input_engine_t *e, uint32_t raw, int8_t enc, uint32_t now
 	uint32_t stable = ~(raw ^ e->raw_prev);
 	e->raw_prev = raw;
 	uint32_t held = (e->held & ~stable) | (raw & stable);
+	// A CW key's press counts on its first scan, 10 ms sooner: a rubber key's contact bounces as it opens, so its
+	// release still waits for two agreeing scans, and a bounce while it closes can't end the press (morse.md 8.2)
+	held |= raw & input_engine_fast_mask(e);
 	e->ignore &= held;		// a start-up key counts again once it has been released
 	if (held != e->held || held != 0 || enc != 0) {
 		e->last_activity_ms = now_ms;

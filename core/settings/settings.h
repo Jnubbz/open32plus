@@ -268,11 +268,16 @@ typedef struct {
 	// later. Appended: an older record reads 0, live keying
 	uint8_t cw_key_delay;
 	// The paddles (morse.md 10): the keyer's mode, cw_keyer_mode_t (0 iambic B, 1 iambic A, 2 ultimatic, 3 bug), and
-	// whether the dit and dah paddles change places. Were reserved12[0..1]: an older record reads iambic B, not swapped
+	// SETTINGS_CW_* flags: the dit and dah paddles changed places, the sidetone off. Were reserved12[0..1]: an older
+	// record reads iambic B, not swapped, sidetone on
 	uint8_t cw_paddle;
-	uint8_t cw_paddle_swap;
+	uint8_t cw_flags;
 	uint8_t reserved12[1];		// 0
 } settings_t;
+
+// settings_t.cw_flags (morse.md 5.2, 10; bits 2..7 reserved, 0)
+#define SETTINGS_CW_PADDLE_SWAP		0x01u	// OK the dah paddle, Back the dit one
+#define SETTINGS_CW_SIDETONE_OFF	0x02u	// no sidetone on the speaker (where the board has one)
 
 // Pages: settings_t is stored as records of SETTINGS_PAGE_BYTES each (settings-store.md 2.1). Only the pages its size
 // needs are written, each with its own length, so settings_t grows by appending fields; the record's page field

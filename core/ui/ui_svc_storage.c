@@ -319,7 +319,9 @@ static __attribute__((noinline)) int32_t setting_get_flash(uint8_t id)
 	case UI_SET_CW_PADDLE:		// out of range: iambic B, as the keyer takes it
 		return SETTINGS_FIELD(cw_paddle) < CW_KEYER_MODES ? SETTINGS_FIELD(cw_paddle) : 0;
 	case UI_SET_CW_PADDLE_SWAP:
-		return SETTINGS_FIELD(cw_paddle_swap) != 0;
+		return (SETTINGS_FIELD(cw_flags) & SETTINGS_CW_PADDLE_SWAP) != 0;
+	case UI_SET_CW_SIDETONE:
+		return (SETTINGS_FIELD(cw_flags) & SETTINGS_CW_SIDETONE_OFF) == 0;
 	case UI_SET_CW_KEY_DELAY_MS: {	// out of range: 0 (radio_sm.c cw_key_delay)
 		int32_t ms = (int32_t)SETTINGS_FIELD(cw_key_delay) * MORSE_KEY_DELAY_MS_STEP;
 		return ms <= MORSE_KEY_DELAY_MS_MAX ? ms : 0;
@@ -684,10 +686,14 @@ bool ui_svc_setting_set(uint8_t id, int32_t value)
 		settings_end(hal_millis());
 		return true;
 	case UI_SET_CW_PADDLE_SWAP:
+	case UI_SET_CW_SIDETONE: {
+		uint8_t bit = id == UI_SET_CW_PADDLE_SWAP ? SETTINGS_CW_PADDLE_SWAP : SETTINGS_CW_SIDETONE_OFF;
+		bool set = id == UI_SET_CW_PADDLE_SWAP ? value != 0 : value == 0;	// the sidetone's bit is "off"
 		st = settings_begin();
-		st->cw_paddle_swap = value != 0;
+		st->cw_flags = (uint8_t)(set ? (st->cw_flags | bit) : (st->cw_flags & ~bit));
 		settings_end(hal_millis());
 		return true;
+	}
 	case UI_SET_CW_KEY_DELAY_MS:
 		if (value < 0 || value > MORSE_KEY_DELAY_MS_MAX || value % MORSE_KEY_DELAY_MS_STEP != 0)
 			return false;

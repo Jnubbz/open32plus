@@ -50,6 +50,7 @@ is `tools/bringup.py list --radio <id>`.
 | `cw_decode` | not recorded | not recorded | not recorded | off | off | not recorded | not recorded | not recorded |
 | `cw_qso` | not recorded | not recorded | not recorded | off | off | not recorded | not recorded | not recorded |
 | `cw_paddles` | not recorded | not recorded | not recorded | not recorded | off | not recorded | not recorded | not recorded |
+| `cw_sidetone` | not recorded | not recorded | not recorded | not recorded | off | not recorded | not recorded | not recorded |
 | `vox` | not written | not recorded | not recorded | not written | not recorded | not recorded | pass, needs re-run | not written |
 | `battery_save` | pass (seed) | pass (seed) | not recorded | not recorded | not recorded | not recorded | pass, needs re-run | partial, needs re-run |
 | `am_rx` | not recorded | ✕ | not recorded | ✕ | ✕ | ✕ | ✕ | ✕ |

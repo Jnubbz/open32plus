@@ -1451,6 +1451,62 @@ static void test_parse_fuzz(void)
 	printf("# aprs fuzz: %ld frames, %ld decoded, %ld parsed\n", iters, decoded, parsed);
 }
 
+// Timed keying (afsk_tone_key_at, morse.md 8.2): edges handed over late and unevenly, on a 10 ms tick, still play
+// their own lengths to the sample at a fixed latency. The generator runs a FIFO's worth ahead, in 32-sample chunks
+static void test_timed_tone(void)
+{
+	afsk_tone_t t;
+	int16_t one;
+	afsk_tone_init(&t, 8000, 800, 10000, 40);
+	const uint32_t slack = 20, lat = 38;	// a keyer's edges: at least slack ms old when handed over
+	uint32_t edge_ms[12], change[12];
+	int changes = 0, next = 0;
+	for (int k = 0; k < 12; k++) {
+		edge_ms[k] = 103u + (uint32_t)k * 66u;	// 18 wpm dots, off the tick
+	}
+	bool was = false;
+	uint32_t made = 0;	// samples generated
+	for (uint32_t ms = 0; ms < 1200; ms++) {
+		if (ms % 10 == 7) {	// the radio tick hands over what is slack old
+			while (next < 12 && edge_ms[next] + slack <= ms) {
+				CHECK(afsk_tone_key_at(&t, (next & 1) == 0, edge_ms[next], ms, lat), "edge %d taken", next);
+				next++;
+			}
+		}
+		while (made < (ms + 8u) * 8u) {	// the FIFO's 8 ms ahead, a chunk at a time
+			for (int i = 0; i < 32; i++, made++) {
+				afsk_tone(&t, &one, 1);
+				if (t.down != was && changes < 12) {
+					change[changes++] = made;
+					was = t.down;
+				}
+			}
+		}
+	}
+	CHECK(changes == 12, "changes %d", changes);
+	bool exact = true;
+	for (int k = 1; k < changes; k++) {
+		exact = exact && change[k] - change[k - 1] == 66u * 8u;
+	}
+	CHECK(exact, "every element and space 528 samples (66 ms)");
+	CHECK(t.resyncs == 0, "no resync: %u", t.resyncs);
+	// The latency: the first edge is made lat ms after its time on the generator's clock, which runs the FIFO's
+	// 8 ms ahead of the hand-over, within the chunk the mapping was read in
+	int32_t first = (int32_t)change[0] - (int32_t)(edge_ms[0] * 8u);
+	CHECK(first >= (int32_t)((lat + 8u) * 8u) - 32 && first <= (int32_t)((lat + 8u) * 8u) + 32, "latency %ld samples",
+	      (long)first);
+
+	// An edge far too late for the mapping sets it again and plays at once; a full queue drops the edge
+	uint32_t now = 1200;
+	CHECK(afsk_tone_key_at(&t, true, now - 200u, now, lat), "late edge taken");
+	CHECK(t.resyncs == 1, "late edge resynced: %u", t.resyncs);
+	int queued = 1;
+	while (afsk_tone_key_at(&t, (queued & 1) == 0, now + (uint32_t)queued, now, lat)) {
+		queued++;
+	}
+	CHECK(queued == (int)AFSK_TONE_EDGES, "queue holds %d", queued);
+}
+
 // The keyed tone for CW messages (afsk_tone, hal_afsk_t.tone_start): silent while up, the tone's frequency and level
 // while down, and raised-cosine edges over the ramp (no step a click would come from)
 static void test_keyed_tone(void)
@@ -1526,6 +1582,7 @@ int main(int argc, char **argv)
 	test_hdlc();
 	test_afsk();
 	test_keyed_tone();
+	test_timed_tone();
 	test_position_build();
 	test_position_parse();
 	test_mice();

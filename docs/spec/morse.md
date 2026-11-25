@@ -94,6 +94,7 @@ The text is cleaned before it is handed over (`radio_cwmsg_clean`): upper case, 
 | Guards | `tx_check()`, `tx_held()`, an RX-only channel or a board without `tx_tone` refuse it (`no_tx`), and `key_tx()` checks again | Every keying path shares them |
 | Length | Refused when lead + `morse_ms()` + tail is not shorter than the channel's TOT (`too_long`) | The TOT is never the thing that ends a CW message. The TOT still runs as a backstop |
 | Keying | `cw_begin()`, as the CW IDs: carrier up, the lead-in from Settings > CW (`cw_lead`, 300-2000 ms in 100 ms steps, default 600; an ID's is 150 ms), the Morse on the board's keyed audio tone (`hal_afsk_t.tone_start` / `tone_key`, 5 ms raised-cosine edges) where it has one, else on `tx_tone` / `tx_tone_key` as the IDs, 150 ms tail. The view: `RS_TX`, `tx_auto`, `cw_tx` | One keyer for every CW path. The receivers are handhelds: squelch, battery save and a subtone decoder open on the carrier, and with 150 ms the first letter was lost on the air. 600 ms still lost it to a receiver with battery save on: a setting, since the sender can't change the receiver. The audio path keeps the channel's subtone intact: on the HR_C7000 the tone generator's deviation is also the subtone's, and a tone squelch receiver stayed shut ([modem-hrc7000.md](modem-hrc7000.md) 8.3) |
+| Sidetone | Settings > CW > Sidetone (`cw_flags` bit 1 clear, on by default): after `tone_start`, `hal_afsk_t.tone_side(true)`, so the radio's own speaker plays the tone that goes on the air; `tx_stop` turns it off. Shown only where the board has it (`radio_cw_sidetone_capable`, `UI_FEAT_CW_SIDETONE`); the platform passes it to the board (`hrc_afsk_board_t.side`), which switches its speaker amplifier on. Messages and hand keying alike. Untested on the radio: whether the speaker plays it, its level, and whether the amplifier changes the deviation are bench checks | A hand-keying operator times each element by ear. Through another receiver the keying came back 100 ms or more late, longer than the dot of space after which the keyer looks at the paddles again, so a dah released when it was heard to end was already followed by another (on the air, 2026-11-25). The tone path's audio is the speaker's source in TX, so no tone generator, and none of its effect on the subtone, is involved |
 | End | `tune()` back to the channel, as an APRS transmission ends (`sent`) | The channel exactly as before |
 | Stop | `RREQ_CW_STOP` (Back), PTT, the monitor, hotspot mode, or any request that retunes or acts on the channel (`RQ_RETUNES`, `RQ_SELECTED`): key up and carrier off at once, then `tune()` (`cut`). PTT's press and release do nothing else: press it again to talk. While the message keys, the radio core sets `hal_input_t.ptt_stops_tx`, so a board whose PTT line trusts no new press during a transmission ([gotchas.md](gotchas.md) 16.2) trusts one | The user is always in control of the transmitter |
 
@@ -207,20 +208,33 @@ power and subtone, the idle and transmit checks, the audio tone path, PTT and re
 
 | Rule | Behavior | Why |
 |---|---|---|
-| Time stamps | `radio_req_cw_key()` posts each edge with `hal_millis()` taken in the input task (`RREQ_CW_KEY`, arg2) | The keying plays from when the edge happened. The queue and the radio task's own timing add no jitter |
-| Delay | An edge plays at its time plus Key delay (`cw_hand_poll`, every `RADIO_TICK_MS`); 0 by default | Live keying: with no sidetone on the radio the operator listens on another receiver, and on the air test (2026-11-25) a 600 ms delay made hand keying impossible. A receiver whose squelch or battery save opens slowly can clip the session's first element (send a V first); a delay keeps it, at the cost of hearing the keying that much late. The delay can't be caught up in the gaps: that would cut a 600 ms delay out of gaps of about 180 ms at 20 wpm, turning character gaps into element gaps |
+| Time stamps | `radio_req_cw_key()` posts each edge with `hal_millis()` taken in the input task (`RREQ_CW_KEY`, arg2), right after the scan that saw it | The keying plays from when the edge happened. The queue and the radio task's own timing add no jitter |
+| Press | A CW key's press counts on its first scan; its release after two agreeing scans (`input_engine_fast_mask`: `ACT_CW_KEY`, `ACT_CW_DIT`, `ACT_CW_DAH`) | 10 ms sooner. A rubber key's contact bounces as it opens: a bounce while it closes can't end the press, since the release still wants two scans |
+| Tone at a time | On a board whose keyed tone takes times (`hal_afsk_t.tone_key_at`, `afsk_tone_key_at`), each edge goes over with its time and plays a fixed latency after it: `CW_HAND_LAT_MS` (18) for the straight key, plus `CW_KEYER_SLACK_MS` for the keyer. The first edge sets the mapping from ms to samples; an edge too late for it, or so early the clocks drifted 20 ms apart, sets it again (`resyncs`). A board without it keys at once, on the tick (`tone_key`) | Keyed on the 10 ms tick and the 4 ms audio chunk, an element whose length isn't a multiple of 10 ms came out up to 10 ms long or short: 18 wpm's 66 ms dots as 60 or 70 ms. At its time it is 528 samples every time (`aprsTest`) |
+| Delay | An edge plays at its time plus Key delay (`cw_hand_next`, every `RADIO_TICK_MS`); 0 by default | Live keying: with no sidetone on the radio the operator listens on another receiver, and on the air test (2026-11-25) a 600 ms delay made hand keying impossible. A receiver whose squelch or battery save opens slowly can clip the session's first element (send a V first); a delay keeps it, at the cost of hearing the keying that much late. The delay can't be caught up in the gaps: that would cut a 600 ms delay out of gaps of about 180 ms at 20 wpm, turning character gaps into element gaps |
 | Queue | 32 edges. A repeat of the last edge is dropped. A full queue ends the session (`cut`) | 16 elements inside a 2 s lead-in is past anyone's hand speed |
 | Hang | Done once the air key has been up `cw_hang` with nothing queued and the side key up; then `cw_finish()` and `tune()` back to the channel | Semi break-in: the carrier stays up through the gaps between letters and words |
 | Time-out | No length to check first: the channel's TOT ends a session as it ends PTT, with `BEEP_ERROR` | A held key can't transmit for ever |
 | View | `RS_TX`, `cw_tx`, `tx_auto` false (the user keyed it: the screen wakes) | |
 | Outcome | None in `radio_cwmsg_get()`: no message was handed over | The CW message screens show only messages |
 
-The input scan (`INPUT_SCAN_MS`, 10 ms, two agreeing scans to debounce) sets the timing's resolution: both edges are
-late by the same debounce, so an element's length is kept to within a scan.
+The input scan (`INPUT_SCAN_MS`, 10 ms) sets the straight key's resolution: an element's length is kept to within a
+scan. A scan waits for a bus the keys share where a board has one (key rows that are LCD data lines, held for a
+redraw), and an edge seen after the wait is stamped that much late: `input.scan_max_ms` and `input.scan_slow` (scans
+of 5 ms or more) on the debug link show it.
 
-The radio's own speaker plays no sidetone yet. The HR_C7000's sidetone (`hal_radio_t.tx_tone_side`) follows its tone
-generator, which garbles the subtone ([modem-hrc7000.md](modem-hrc7000.md) 8.3). Whether the audio tone path can reach
-the speaker during a transmission is not yet known. Listen on a second receiver meanwhile.
+From the key to the air, worked out from the code (not measured):
+
+| Stage | Straight key | Paddles |
+|---|---|---|
+| Scan to the press (first scan) | 0-10 ms | 0-10 ms |
+| The keyer behind now | — | 20 ms (`CW_KEYER_SLACK_MS`) |
+| To the tone at its time | 18 ms | 18 ms |
+| The FIFO the tone plays from (HR_C7000 boards) | about 8 ms | about 8 ms |
+| Total | about 26-36 ms | about 46-56 ms |
+
+The sidetone ([5.2](#52-where-and-how-it-keys)) plays the same audio, so the operator hears it with that latency, not
+a second receiver's.
 
 ### 8.3 Size, switches and tests
 
@@ -231,8 +245,10 @@ the speaker during a transmission is not yet known. Listen on a second receiver 
 | Settings | `cw_hang` in the old `reserved11`'s last byte (offset 407), `cw_key_delay` appended (offset 412; [settings-store.md](settings-store.md)) |
 | `morseTest` | `cw_hand`: the delay, element lengths kept, the hang, a press during the hang, a held key, a full queue, the clock wrapping |
 | `keyassignTest` | Straight key's number, press only, raw edges through the gesture engine, the PTT lock, never on a home key |
-| `radioCoreTest` | Live keying (a dot on air at the next tick, its length kept), a dot and a dash keyed 600 ms late with Key delay set, with their lengths, the hang, a late request playing on time, a press during the hang, the hang setting, PTT and a channel change cutting it, a CW message refused over it and the key ignored during one, refusals on DMR and TX inhibit, the time-out |
-| Debug link | `cw.hang` and `cw.tx` in view section 39 ([debuglink.md](debuglink.md)) |
+| `inputTest` | A CW key's press on its first scan, a bounce while it closes, its release after two scans, a PTT glitch still ignored |
+| `aprsTest` | `afsk_tone_key_at`: 18 wpm dots handed over on a 10 ms tick play 528 samples each, the latency, a late edge resyncing, a full queue |
+| `radioCoreTest` | Timed keying: the straight key's edges at their own times with 18 ms, the keyer's 66 ms apart exactly with 38 ms, the sidetone on with the tone and not with it turned off, a late paddle edge counted. Live keying (a dot on air at the next tick, its length kept), a dot and a dash keyed 600 ms late with Key delay set, with their lengths, the hang, a late request playing on time, a press during the hang, the hang setting, PTT and a channel change cutting it, a CW message refused over it and the key ignored during one, refusals on DMR and TX inhibit, the time-out |
+| Debug link | `cw.hang`, `cw.tx`, `cw.key_drop` (edges the timed tone had no room for) and `cw.sidetone` in view section 39; `input.scan_max_ms`, `input.scan_slow` ([debuglink.md](debuglink.md)) |
 
 ## 9. The QSO helper (`CONFIG_CW_QSO`)
 
@@ -292,7 +308,7 @@ is the straight key's (section 8): the same session, delay line, Key delay, hang
 | Step | Behavior |
 |---|---|
 | Open | Send CW > Key by hand. The status row says Ready, On air, or Needs an FM channel |
-| Paddles | OK is the dit paddle and Back the dah paddle; Settings > CW > Swap paddles changes them over (`cw_paddle_swap`) |
+| Paddles | OK is the dit paddle and Back the dah paddle; Settings > CW > Swap paddles changes them over (`cw_flags` bit 0) |
 | Keyer | Settings > CW > Paddle (`cw_paddle`, `cw_keyer_mode_t`): Iambic B (0, the default), Iambic A, Ultimatic or Bug, as in 10.2. Speed (dot = 1200 / wpm ms, a dah three dots, a dot between elements) |
 | Close | Up, Down or # (a turn of the knob too): Back is a paddle here. * is still Quick settings. Closing turns the paddles off; a transmission still hanging ends by itself |
 | Stop | PTT, a retune or the monitor cut the keying at once, as with the straight key |
@@ -317,7 +333,7 @@ Every element and the dot of space after it run whole. At the end of that space 
 |---|---|---|
 | Paddles (`input_paddle_map`) | While the screen is open (`ui_svc_cw_paddles` → `input_set_paddles`), the key map's OK and BACK keys send `ACT_CW_DIT` and `ACT_CW_DAH` raw edges, no long press or repeat. The input task changes the map only while no key is held, as for `input_set_keymap` | The board's keys, whatever their names; the OK press that opened the screen ends as an OK |
 | Edges | `input_forward` posts each edge with `hal_millis()` (`RREQ_CW_PADDLE`). The first press starts a session (`cwhand_begin`, the straight key's checks); Swap paddles applies there | As the straight key: the time the edge happened travels with it |
-| Keyer | Run each tick to 50 ms before now, a millisecond at a time: the paddles as their queued edges say, the mode's elements from there. Each change of the key goes to `cw_hand` at its own millisecond | The 50 ms lets an edge reach the queue before the keyer passes its time. The timing comes from the edges, not from when the task ran |
+| Keyer | Run each tick to `CW_KEYER_SLACK_MS` (20 ms) before now, a millisecond at a time: the paddles as their queued edges say, the mode's elements from there. Each change of the key goes to `cw_hand` at its own millisecond, and on to the tone at its time (8.2) | The 20 ms lets an edge reach the queue before the keyer passes its time: the edge is stamped right after its scan and the radio task wakes for it. It was 50 ms; `cw.key_late` counts the edges that came later, the session's paddle state taken a little late for each. The timing comes from the edges, not from when the task ran |
 | End | The session ends once the paddles are up, no element runs or is remembered, and the hang has passed | |
 
 ### 10.4 Size, switches and tests
@@ -326,8 +342,8 @@ Every element and the dot of space after it run whole. At the end of that space 
 |---|---|
 | Switch | `CONFIG_CW_PADDLES`, = `CW_SEND`; [feature-matrix.md](../feature-matrix.md) has the flash figure |
 | RAM | About 70 bytes in `radio_sm_t` (`cw_keyer_t`), and a second copy of the key map in the input task (6 bytes a key) |
-| Settings | `cw_paddle` and `cw_paddle_swap` at offsets 413 and 414, were `reserved12` ([settings-store.md](settings-store.md)) |
+| Settings | `cw_paddle` and `cw_flags` (bit 0 Swap paddles, bit 1 the sidetone off) at offsets 413 and 414, were `reserved12` ([settings-store.md](settings-store.md)) |
 | `morseTest` | The bug: three dits from a 250 ms hold at 20 wpm, a whole dit from a tap, the dah's length, a late edge, both paddles, a full queue. The other modes: one paddle's elements, a tap, a held squeeze (iambic alternating, ultimatic repeating the last pressed), a squeeze let go in the first element and a tap during a dah (B sends one more, A doesn't), a squeeze from rest, an unknown mode taken as B |
 | `keyassignTest` | `input_paddle_map` (OK and Back only, raw edges) and the paddles' edges reaching the radio task, a press not while PTT is locked out |
-| `radioCoreTest` | The bug's dits and dah on the air with their timing, the hang, a held paddle, PTT cutting it, the straight key and a message each locked out during the other, a DMR channel refused, live keying; iambic B's 180 ms dah from a 200 ms hold; Swap paddles |
+| `radioCoreTest` | The keyer's edges at their own times on the timed tone (8.3). The bug's dits and dah on the air with their timing, the hang, a held paddle, PTT cutting it, the straight key and a message each locked out during the other, a DMR channel refused, live keying; iambic B's 180 ms dah from a 200 ms hold; Swap paddles |
 | `uiFlowTest` | The row, `cw-key`, Back staying, Up and # closing |

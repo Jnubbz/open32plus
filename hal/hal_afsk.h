@@ -34,6 +34,13 @@ typedef struct {
 	// tx_start's. The channel's subtone stays on, as it does for the microphone. tx_stop ends it. False when it can't
 	bool (*tone_start)(uint16_t hz, uint8_t level);
 	void (*tone_key)(bool down);
+	// Optional (NULL: tone_key at the time it is called): the key went down or up at ms on hal_millis(), now_ms now;
+	// it plays lat_ms after ms, so an element keeps its length to the sample (afsk_tone_key_at, morse.md 8.2). False
+	// when its queue is full
+	bool (*tone_key_at)(bool down, uint32_t ms, uint32_t now_ms, uint32_t lat_ms);
+	// Optional (NULL: none): the radio's own speaker plays the keyed tone while it is on the air, a sidetone
+	// (morse.md 5.2). Only after tone_start; tx_stop turns it off
+	void (*tone_side)(bool on);
 
 	// Optional receive path (NULL / 0 when there is none)
 	uint32_t rx_rate_hz;
