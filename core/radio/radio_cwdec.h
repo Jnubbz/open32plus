@@ -34,8 +34,11 @@ typedef struct {
 void radio_cwdec_want(bool on);
 // UI task: empty the text
 void radio_cwdec_clear(void);
-// UI task: the state, and the text (the newest part that fits max, terminated)
+// UI task: the state, and the text (the newest part that fits max, terminated). Lines change with the speaker: the
+// operator's own hand keying (radio_cwdec_sent) after "> ", what was heard as it came
 void radio_cwdec_get(radio_cwdec_view_t *v, char *text, size_t max);
+// Radio task: text the operator keyed by hand (morse.md 10.5), into the text while the decoder is wanted
+void radio_cwdec_sent(const char *t, size_t n);
 
 // What the radio core says about the channel, every poll
 typedef struct {

@@ -13,6 +13,7 @@
 #include "radio/morse.h"
 #include "radio/cw_hand.h"
 #include "radio/cw_keyer.h"
+#include "radio/cw_echo.h"
 #include "radio/radio_cwid.h"
 #include "radio/beep.h"	// beep_seg_t
 #include "radio/sigtone.h"	// SIG_STEPS
@@ -455,6 +456,9 @@ typedef struct {
 	bool cw_hand;
 	cw_hand_t hand;
 	uint16_t cw_key_dropped;	// hand-keyed edges the timed tone's queue had no room for (debug link cw.key_drop)
+#if CONFIG_CW_DECODE
+	cw_echo_t echo;			// the session's keying as text, to the decoder's text (morse.md 10.5)
+#endif
 	uint16_t hand_lead_ms, hand_hang_ms;
 #if CONFIG_CW_PADDLES
 	// ... the bug's paddles making that key (morse.md 10)

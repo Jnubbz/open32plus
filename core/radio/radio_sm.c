@@ -7267,6 +7267,10 @@ static void cw_key(radio_sm_t *sm, bool down)
 // sample; else at once, on the tick that got to it
 static void cw_key_at(radio_sm_t *sm, bool down, uint32_t at_ms, uint32_t now_ms, uint32_t lat_ms)
 {
+#if CONFIG_CW_DECODE
+	char t[CW_ECHO_OUT_MAX];
+	radio_cwdec_sent(t, cw_echo_edge(&sm->echo, down, at_ms, t, sizeof t));
+#endif
 	if (sm->cw_audio && board.afsk->tone_key_at != NULL) {
 		sm->cw_key = down;
 		if (!board.afsk->tone_key_at(down, at_ms, now_ms, lat_ms)) {
@@ -7286,6 +7290,10 @@ static void cw_ended(radio_sm_t *sm, uint8_t why, uint32_t ms)
 	(void)sent;
 #if CONFIG_CW_SEND
 	if (sm->cw_hand) {
+#if CONFIG_CW_DECODE
+		char t[CW_ECHO_OUT_MAX];
+		radio_cwdec_sent(t, cw_echo_flush(&sm->echo, t, sizeof t));
+#endif
 #if CONFIG_CW_PADDLES
 		sm->cw_paddles = false;
 #endif
@@ -7448,6 +7456,11 @@ static bool cw_begin(radio_sm_t *sm, uint32_t hz, radio_bw_t bw, uint8_t power, 
 	// A message on a board with a keyed audio tone goes that way: the channel's subtone stays as it is for the
 	// microphone (hal_afsk.h). On the HR_C7000 the tone generator's deviation is the subtone's too
 	sm->cw_audio = sm->cw_msg && cw_audio_path();
+#if CONFIG_CW_DECODE
+	if (sm->cw_audio) {
+		radio_cwdec_release();	// the decoder's receive audio and the tone share the path; it starts again after
+	}
+#endif
 	if (sm->cw_audio) {
 		tone_on = key_tx(sm, hz, bw, power, tone) &&
 			  board.afsk->tone_start(sm->cw_tone_hz, bw == RADIO_BW_25K ? CW_AUDIO_LEVEL_WIDE : CW_AUDIO_LEVEL);
@@ -7699,6 +7712,9 @@ static bool cwhand_begin(radio_sm_t *sm, uint32_t now_ms)
 	}
 	sm->cw_phase = CW_HAND;
 	cw_hand_start(&sm->hand, now_ms);
+#if CONFIG_CW_DECODE
+	cw_echo_start(&sm->echo, (uint16_t)(1200u / wpm));
+#endif
 	return true;
 }
 
@@ -7784,6 +7800,10 @@ static void cw_service(radio_sm_t *sm, uint32_t now_ms)
 				cw_key_at(sm, down, at, now_ms, lat);
 			}
 		}
+#if CONFIG_CW_DECODE
+		char t[CW_ECHO_OUT_MAX];
+		radio_cwdec_sent(t, cw_echo_poll(&sm->echo, now_ms, t, sizeof t));
+#endif
 		bool done;
 		(void)cw_hand_poll(&sm->hand, now_ms, sm->hand_lead_ms, sm->hand_hang_ms, &done);
 #if CONFIG_CW_PADDLES

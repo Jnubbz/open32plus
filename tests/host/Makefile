@@ -305,7 +305,7 @@ T3RADIO := $(CORE)/radio/radio_trunk.c $(CORE)/radio/radio_trunk_cp.c $(CORE)/co
 RFEAT   := $(CORE)/radio/scan.c $(CORE)/radio/beep.c $(CORE)/radio/sigtone.c $(CORE)/radio/battery.c $(CORE)/radio/roam.c $(CORE)/radio/radio_am.c $(CORE)/radio/radio_bcast.c \
            $(CORE)/radio/vibe.c $(CORE)/radio/mic_gain.c $(CORE)/radio/ref_trim.c $(CORE)/radio/pa_keyup.c $(CORE)/codeplug/codeplug_talk.c $(CORE)/codeplug/zone_shift.c \
            $(CORE)/codeplug/zone_settle.c \
-           $(CORE)/radio/radio_sfr.c $(CORE)/radio/radio_cwid.c $(CORE)/radio/radio_cwmsg.c $(CORE)/radio/radio_cwdec.c $(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_keyer.c $(CORE)/radio/tx_limit.c $(T3RADIO)
+           $(CORE)/radio/radio_sfr.c $(CORE)/radio/radio_cwid.c $(CORE)/radio/radio_cwmsg.c $(CORE)/radio/radio_cwdec.c $(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_keyer.c $(CORE)/radio/cw_echo.c $(CORE)/radio/tx_limit.c $(T3RADIO)
 RCORE   := radioCoreTest.c $(CORE)/radio/radio_sm.c $(CORE)/codeplug/codeplug_keys.c $(CORE)/radio/tones.c $(RFEAT) $(CORE)/dmr/call/dmr_call.c $(CORE)/dmr/fec/dmrCach.c \
            $(CORE)/dmr/call/dmr_lc.c $(CORE)/dmr/fec/dmrFec.c $(CORE)/dmr/fec/dmrSoftComb.c $(CORE)/dmr/ambe/ambeVoice.c $(CORE)/dmr/ambe/ambeFec.c \
            $(CORE)/dmr/dmrPrivacy.c $(CORE)/dmr/dmrAes.c $(CORE)/radio/radio_aes.c sim/dmr_sim_modem.c $(CORE)/dmr/dmrData.c $(CORE)/dmr/dmrDataService.c \
@@ -429,7 +429,7 @@ FMONLY  := -DCONFIG_DMR=0 -DCONFIG_DMR_PRIVACY=0 -DCONFIG_DMR_TALKER_ALIAS=0 -DC
            -DCONFIG_DMR_LRRP=0 -DCONFIG_DMR_SIGNALING=0 -DCONFIG_DMR_IP_GATEWAY=0 -DCONFIG_SFR=0 -DCONFIG_HOTSPOT=0
 APRSRT  := aprsRadioTest.c $(CORE)/radio/radio_sm.c $(CORE)/codeplug/codeplug_keys.c $(CORE)/radio/tones.c $(CORE)/radio/tx_limit.c $(CORE)/radio/scan.c $(CORE)/radio/beep.c $(CORE)/radio/sigtone.c \
            $(CORE)/radio/vibe.c $(CORE)/codeplug/codeplug_talk.c $(CORE)/codeplug/zone_shift.c $(CORE)/codeplug/zone_settle.c \
-           $(CORE)/radio/battery.c $(CORE)/radio/morse.c $(CORE)/radio/radio_cwmsg.c $(CORE)/radio/radio_cwdec.c $(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_keyer.c $(CORE)/settings/settings.c $(CORE)/storage/storage.c \
+           $(CORE)/radio/battery.c $(CORE)/radio/morse.c $(CORE)/radio/radio_cwmsg.c $(CORE)/radio/radio_cwdec.c $(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_keyer.c $(CORE)/radio/cw_echo.c $(CORE)/settings/settings.c $(CORE)/storage/storage.c \
            $(CORE)/radio/radio_am.c $(CORE)/radio/radio_bcast.c $(CORE)/aprs/aprs.c $(CORE)/aprs/aprs_ax25.c $(CORE)/aprs/aprs_dmr.c $(CORE)/aprs/aprs_host.c $(APRSLIB) \
            $(CORE)/usbaudio/audio_mux.c $(CORE)/usbaudio/pcm_slip.c $(CORE)/ui/ui_svc_aprs.c \
            $(POSLIB) $(CORE)/ui/ui_svc_position.c
@@ -989,9 +989,9 @@ run-rxchain: dmrRxChainTest dmrDataChainTest hrc7000RxChainTest
 # text (core/radio/radio_cwmsg.c): cleaning and {CALL}; the decoder; the straight key's delayed keying (cw_hand.c)
 morseTest: morseTest.c $(CORE)/radio/morse.c $(CORE)/radio/morse.h $(CORE)/radio/radio_cwmsg.c $(CORE)/radio/radio_cwmsg.h \
            $(CORE)/radio/morse_decode.c $(CORE)/radio/morse_decode.h $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_hand.h \
-           $(CORE)/radio/cw_qso.c $(CORE)/radio/cw_qso.h $(CORE)/radio/cw_keyer.c $(CORE)/radio/cw_keyer.h
+           $(CORE)/radio/cw_qso.c $(CORE)/radio/cw_qso.h $(CORE)/radio/cw_keyer.c $(CORE)/radio/cw_keyer.h $(CORE)/radio/cw_echo.c $(CORE)/radio/cw_echo.h
 	$(CC) $(CFLAGS) -Wshadow -DMORSE_TEXT_MAX=160 -o $@ morseTest.c $(CORE)/radio/morse.c $(CORE)/radio/radio_cwmsg.c \
-		$(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_qso.c $(CORE)/radio/cw_keyer.c -lm
+		$(CORE)/radio/morse_decode.c $(CORE)/radio/cw_hand.c $(CORE)/radio/cw_qso.c $(CORE)/radio/cw_keyer.c $(CORE)/radio/cw_echo.c -lm
 TESTS   += morseTest
 
 run: run-morse

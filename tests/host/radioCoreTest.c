@@ -20,6 +20,7 @@
 #include "sim/dmr_sim_modem.h"
 #include "radio/radio_hotspot.h"
 #include "radio/radio_cwmsg.h"
+#include "radio/radio_cwdec.h"
 #include "hotspot/hotspot.h"
 #include "hotspot/mmdvm.h"
 #include "settings/settings.h"
@@ -4629,6 +4630,30 @@ static void test_cw_timed(void)
 	paddle(false, false, now - 60);
 	run(2000);
 	CHECK(sm.view.cw_key_late == 1);
+#if CONFIG_CW_DECODE
+	// Key by hand decodes as well (morse.md 10.5): with the decoder wanted, the straight key's dit and dah come back
+	// as "> A " in its text, a line of the operator's own
+	sd = settings_begin();
+	sd->cw_wpm = 20;
+	settings_end(now);
+	radio_cwdec_want(true);
+	run(30);
+	cw_key_edge(true, now);
+	run(60);
+	cw_key_edge(false, now);
+	run(60);
+	cw_key_edge(true, now);
+	run(180);
+	cw_key_edge(false, now);
+	run(2000);
+	radio_cwdec_view_t dv;
+	char dt[64];
+	radio_cwdec_get(&dv, dt, sizeof dt);
+	CHECK(strcmp(dt, "> A ") == 0);	// and the word space once the gap reached five dots
+	CHECK(!radio_cwdec_running());
+	radio_cwdec_want(false);
+	run(30);
+#endif
 	fake_afsk.tone_key_at = NULL;
 	fake_afsk.tone_side = NULL;
 	CHECK(!radio_cw_sidetone_capable());

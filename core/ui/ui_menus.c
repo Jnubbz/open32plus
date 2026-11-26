@@ -525,6 +525,27 @@ static const ui_scr_def_t compose_screen = {
 	.count = compose_count, .item = compose_item, .select = compose_select, .title = compose_title, .enter = compose_enter,
 };
 
+#if CONFIG_CW_DECODE
+// The newest text that fits above the rows: whole words dropped from its start until it does (the decode screen's
+// and Key by hand's)
+static const char *cw_text_fit(const char *text, const char *prefix)
+{
+	ui_list_t l;
+	memset(&l, 0, sizeof l);
+	l.prefix = prefix;
+	l.count = 1;
+	const char *t = text;
+	for (int tries = 0; *t && tries < 40; tries++) {
+		l.body = t;
+		if (ui_list_body_fits(&ui_st, &l))
+			break;
+		const char *sp = strpbrk(t, " \n");
+		t = sp != NULL ? sp + 1 : t + strlen(t) / 2;
+	}
+	return t;
+}
+#endif
+
 #if CONFIG_CW_SEND
 // ======================= CW messages (docs/spec/morse.md 5) =======================
 // The composer in CW mode (cw_compose): canned messages with {CALL} filled in, then Write..., which opens the message
@@ -664,10 +685,12 @@ static const ui_scr_def_t cw_send_screen = {
 	.count = cw_send_count, .item = cw_send_item, .body = cw_send_body, .key = cw_send_key,
 };
 
+
 #if CONFIG_CW_PADDLES
 // Key by hand (morse.md 10): while open, OK and Back are a bug's paddles. OK sends dits at Settings > CW > Speed for
 // as long as it is held, Back a dah as long as it is held; the keying goes on air as the straight key's does. Back is a
-// paddle here, so Up, Down and # (and a turn of the knob) close it; * is still Quick settings. PTT stops the keying
+// paddle here, so Up and Down (and a turn of the knob) close it; # clears the decoded text (10.5), or closes it without
+// the decoder; * is still Quick settings. PTT stops the keying
 static uint16_t cw_key_count(void) { return 1; }
 
 static void cw_key_item(uint16_t i, ui_item_t *it)
@@ -679,12 +702,45 @@ static void cw_key_item(uint16_t i, ui_item_t *it)
 		 v->cw_tx ? TR(CW_KEY_STATE_ON_AIR, "On air") : TR(CW_KEY_STATE_READY, "Ready"));
 	if (!fm)
 		it->flags |= UI_ITEM_WARN;
+#if CONFIG_CW_DECODE
+	ui_cwdec_t c;	// the decoder's lock, as on the decode screen: the tone and speed it hears
+	ui_svc_cw_decode_get(&c, NULL, 0);
+	if (fm && !v->cw_tx && c.hz != 0 && (c.state == UI_CWDEC_HEARING || c.state == UI_CWDEC_LISTENING)) {
+		sbuf_t b;
+		sb_init(&b, it->value, sizeof it->value);
+		sb_u32(&b, c.hz, 1);
+		sb_str(&b, " Hz ");
+		sb_u32(&b, c.wpm, 1);
+		sb_str(&b, " wpm");
+	}
+#endif
 }
 
+#if CONFIG_CW_DECODE
+// Key by hand decodes as well (morse.md 10.5): the other station's Morse as the decode screen shows it, and the
+// operator's own keying after "> ", a line for each turn. The paddles' hint until there is any
+static const char *cw_key_body(void)
+{
+	static char text[UI_CWDEC_TEXT_MAX];
+	ui_cwdec_t c;
+	ui_svc_cw_decode_get(&c, text, sizeof text);
+	if (text[0] == 0)
+		return TR(CW_KEY_BODY, "OK: dits  Back: dah");
+	return cw_text_fit(text, TR(CW_ROW_KEY_BY_HAND, "Key by hand"));
+}
+#else
 static const char *cw_key_body(void) { return TR(CW_KEY_BODY, "OK: dits  Back: dah"); }
+#endif
 
 static bool cw_key_key(const input_event_t *ev)
 {
+#if CONFIG_CW_DECODE
+	if (ev->action == ACT_CONTEXT && ev->gesture == GESTURE_PRESS) {	// # clears the text, as on the decode screen
+		ui_svc_cw_decode_clear();
+		ui_dirty();
+		return true;
+	}
+#endif
 	bool close = ((ev->action == ACT_NAV_UP || ev->action == ACT_NAV_DOWN || ev->action == ACT_CONTEXT) &&
 		      ev->gesture == GESTURE_PRESS) || ev->action == ACT_ENC_STEP;
 	if (close)
@@ -692,12 +748,29 @@ static bool cw_key_key(const input_event_t *ev)
 	return close || ev->action == ACT_SELECT || ev->action == ACT_BACK;	// a press left from before the paddles
 }
 
-static void cw_key_enter(void) { ui_svc_cw_paddles(true); }
-static void cw_key_leave(void) { ui_svc_cw_paddles(false); }
+static void cw_key_enter(void)
+{
+	ui_svc_cw_paddles(true);
+#if CONFIG_CW_DECODE
+	ui_svc_cw_decode(true);
+#endif
+}
+
+static void cw_key_leave(void)
+{
+	ui_svc_cw_paddles(false);
+#if CONFIG_CW_DECODE
+	ui_svc_cw_decode(false);
+#endif
+}
 
 static const ui_scr_def_t cw_key_screen = {
 	.name = "cw-key", .flags = SF_LIST | SF_FIELD, .prefix = TRN(CW_ROW_KEY_BY_HAND, "Key by hand"),
+#if CONFIG_CW_DECODE
+	.hint = TRN(CW_KEY_HINT_DECODE, "Up/Down close  # clear"),
+#else
 	.hint = TRN(CW_KEY_HINT, "Up/Down close"),
+#endif
 	.count = cw_key_count, .item = cw_key_item, .body = cw_key_body, .key = cw_key_key,
 	.enter = cw_key_enter, .leave = cw_key_leave,
 };
@@ -740,19 +813,7 @@ static const char *cw_decode_body(void)
 	static char text[UI_CWDEC_TEXT_MAX];
 	ui_cwdec_t c;
 	ui_svc_cw_decode_get(&c, text, sizeof text);
-	ui_list_t l;
-	memset(&l, 0, sizeof l);
-	l.prefix = TR(CWDEC_TITLE, "Decode CW");
-	l.count = 1;
-	const char *t = text;
-	for (int tries = 0; *t && tries < 40; tries++) {
-		l.body = t;
-		if (ui_list_body_fits(&ui_st, &l))
-			break;
-		const char *sp = strchr(t, ' ');
-		t = sp != NULL ? sp + 1 : t + strlen(t) / 2;
-	}
-	return t;
+	return cw_text_fit(text, TR(CWDEC_TITLE, "Decode CW"));
 }
 
 static bool cw_decode_key(const input_event_t *ev)

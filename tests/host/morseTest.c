@@ -12,6 +12,7 @@
 #include "radio/cw_hand.h"
 #include "radio/cw_qso.h"
 #include "radio/cw_keyer.h"
+#include "radio/cw_echo.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -572,6 +573,68 @@ static void keyer_case(uint8_t mode, const char *paddles, const char *want)
 	CHECK(cw_keyer_idle(&k));
 }
 
+// Hand keying as text (cw_echo, morse.md 10.5): marks against two dots, gaps of two dots end a character, of five a
+// word. Keyed as a 20 wpm (60 ms) fist would: "CQ DE" with a word gap, a ragged dah, a run of eight dits ("*")
+static char echo_text[64];
+static size_t echo_n;
+
+static void echo_out(const char *t, size_t n)
+{
+	if (echo_n + n < sizeof echo_text) {
+		memcpy(echo_text + echo_n, t, n);
+		echo_n += n;
+		echo_text[echo_n] = 0;
+	}
+}
+
+// Keys a pattern ('.' dit, '-' dah, ' ' a letter's gap, '/' a word's) from t, polling every 10 ms; the time after
+static uint32_t echo_key(cw_echo_t *e, const char *pat, uint32_t t, uint32_t dah_ms)
+{
+	char out[CW_ECHO_OUT_MAX];
+	for (const char *p = pat; *p; p++) {
+		uint32_t mark = *p == '.' ? 60u : *p == '-' ? dah_ms : 0u;
+		uint32_t gap = *p == ' ' ? 120u : *p == '/' ? 360u : 60u;
+		if (mark != 0) {
+			echo_out(out, cw_echo_edge(e, true, t, out, sizeof out));
+			for (uint32_t k = 10; k < mark; k += 10)
+				echo_out(out, cw_echo_poll(e, t + k, out, sizeof out));
+			t += mark;
+			echo_out(out, cw_echo_edge(e, false, t, out, sizeof out));
+		} else {
+			t -= 60u;	// the element's own space is in its gap
+		}
+		for (uint32_t k = 10; k <= gap; k += 10)
+			echo_out(out, cw_echo_poll(e, t + k, out, sizeof out));
+		t += gap;
+	}
+	return t;
+}
+
+static void test_echo(void)
+{
+	cw_echo_t e;
+	cw_echo_start(&e, 60);
+	echo_n = 0;
+	echo_text[0] = 0;
+	uint32_t t = echo_key(&e, "-.-. --.-/-.. .", 1000, 180);
+	char out[CW_ECHO_OUT_MAX];
+	echo_out(out, cw_echo_flush(&e, out, sizeof out));
+	CHECK(strcmp(echo_text, "CQ DE") == 0);
+	// A dah held long (250 ms) is still a dah; a short one (130 ms, over two dots) too
+	echo_n = 0;
+	echo_text[0] = 0;
+	t = echo_key(&e, "/-", t + 1000, 250);
+	t = echo_key(&e, "/-", t, 130);
+	echo_out(out, cw_echo_flush(&e, out, sizeof out));
+	CHECK(strcmp(echo_text, " T T") == 0);	// a word space after the CQ DE before
+	// Eight elements: no character, '*'
+	echo_n = 0;
+	echo_text[0] = 0;
+	echo_key(&e, "/........", t, 180);
+	echo_out(out, cw_echo_flush(&e, out, sizeof out));
+	CHECK(strcmp(echo_text, " *") == 0);
+}
+
 static void test_keyer_modes(void)
 {
 	for (uint8_t m = CW_KEYER_IAMBIC_B; m <= CW_KEYER_ULTIMATIC; m++) {
@@ -610,6 +673,7 @@ int main(void)
 	test_qso();
 	test_keyer();
 	test_keyer_modes();
+	test_echo();
 	if (failures != 0) {
 		printf("morseTest: %d failure(s)\n", failures);
 		return 1;

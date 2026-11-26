@@ -1835,6 +1835,11 @@ msgid "OK: dits  Back: dah"
 msgstr "OK 点  返回 长"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_KEY_HINT_DECODE"
+msgid "Up/Down close  # clear"
+msgstr "上/下 关闭  # 清除"
+
+#: core/ui/ui_menus.c
 msgctxt "CW_KEY_HINT"
 msgid "Up/Down close"
 msgstr "上/下 关闭"

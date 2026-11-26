@@ -1114,13 +1114,21 @@ static const flow_t flows[] = {
 	  "screen=cw-compose", 1, false },
 	{ "C Back from the CW list returns to Messages", "ok 2 " TO_SEND_CW " ok", "back", "screen=messages", 1, false },
 #if CONFIG_CW_PADDLES
-	// Key by hand (morse.md 10): before Write..., the paddles while open; Back is the dah paddle there, so Up, Down
-	// and # close it (in the sim OK and Back stay unmapped and do nothing). The sim's channel is DMR
-	{ "C Key by hand opens the bug", "ok 2 " TO_SEND_CW " ok", "up up ok",
+	// Key by hand (morse.md 10): before Write..., the paddles while open; Back is the dah paddle there, so Up and Down
+	// close it (in the sim OK and Back stay unmapped and do nothing). The sim's channel is DMR
+#if CONFIG_CW_DECODE
+	// It decodes too (morse.md 10.5): the sim's decoder text above the row, # clears it and leaves the paddles' hint
+	{ "C Key by hand opens the paddles", "ok 2 " TO_SEND_CW " ok", "up up ok",
+	  "screen=cw-key shows=W1AW shows=Needs_an_FM_channel", 3, false },
+	{ "C # clears Key by hand's text", "ok 2 " TO_SEND_CW " ok up up ok", "ctx", "screen=cw-key shows=OK:_dits", 1, false },
+#else
+	{ "C Key by hand opens the paddles", "ok 2 " TO_SEND_CW " ok", "up up ok",
 	  "screen=cw-key shows=OK:_dits shows=Needs_an_FM_channel", 3, false },
+	{ "C # closes Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "ctx", "screen=cw-compose", 1, false },
+#endif
 	{ "C Back doesn't leave Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "back ok", "screen=cw-key", 2, false },
 	{ "C Up closes Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "up", "screen=cw-compose", 1, false },
-	{ "C # closes Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "ctx", "screen=cw-compose", 1, false },
+	{ "C Down closes Key by hand", "ok 2 " TO_SEND_CW " ok up up ok", "down", "screen=cw-compose", 1, false },
 #endif
 	{ "C Write... opens the message editor", "ok 2 " TO_SEND_CW " ok", "up ok", "screen=message-text", 2, false },
 	// Morse has no case: the CW editor's letter keys skip lower case (2: A B C 2, then A again) and # skips abc

@@ -126,7 +126,7 @@ a full queue frees it again.
 
 `tests/host/morseTest.c`: punctuation, prosigns, Farnsworth gaps and keyed timelines, and a 160 character buffer.
 `tests/host/mmdvmTest.c`: PARIS at 20 wpm, the code table and keying over time for the CW ID. CW messages: 5.4.
-The decoder: 7.5. The straight key: 8.3. The QSO helper: 9.3. The paddles: 10.4.
+The decoder: 7.5. The straight key: 8.3. The QSO helper: 9.3. The paddles: 10.6.
 
 ## 7. Decoding CW (`CONFIG_CW_DECODE`)
 
@@ -310,7 +310,8 @@ is the straight key's (section 8): the same session, delay line, Key delay, hang
 | Open | Send CW > Key by hand. The status row says Ready, On air, or Needs an FM channel |
 | Paddles | OK is the dit paddle and Back the dah paddle; Settings > CW > Swap paddles changes them over (`cw_flags` bit 0) |
 | Keyer | Settings > CW > Paddle (`cw_paddle`, `cw_keyer_mode_t`): Iambic B (0, the default), Iambic A, Ultimatic or Bug, as in 10.2. Speed (dot = 1200 / wpm ms, a dah three dots, a dot between elements) |
-| Close | Up, Down or # (a turn of the knob too): Back is a paddle here. * is still Quick settings. Closing turns the paddles off; a transmission still hanging ends by itself |
+| Text | With `CONFIG_CW_DECODE`, the screen decodes as well (10.5): what the other station sends above the status row, your own keying after "> "; the status row's value is the tone and speed the decoder locked on. # clears the text. Before there is any, the paddles' hint |
+| Close | Up or Down (a turn of the knob too): Back is a paddle here. * is still Quick settings. Without the decoder # closes it too. Closing turns the paddles off and the decoder; a transmission still hanging ends by itself |
 | Stop | PTT, a retune or the monitor cut the keying at once, as with the straight key |
 
 Farnsworth plays no part: the spacing between letters and words is the operator's. A session reads the mode and swap
@@ -336,7 +337,18 @@ Every element and the dot of space after it run whole. At the end of that space 
 | Keyer | Run each tick to `CW_KEYER_SLACK_MS` (20 ms) before now, a millisecond at a time: the paddles as their queued edges say, the mode's elements from there. Each change of the key goes to `cw_hand` at its own millisecond, and on to the tone at its time (8.2) | The 20 ms lets an edge reach the queue before the keyer passes its time: the edge is stamped right after its scan and the radio task wakes for it. It was 50 ms; `cw.key_late` counts the edges that came later, the session's paddle state taken a little late for each. The timing comes from the edges, not from when the task ran |
 | End | The session ends once the paddles are up, no element runs or is remembered, and the hang has passed | |
 
-### 10.4 Size, switches and tests
+### 10.5 Decoding while keying
+
+Key by hand runs the decoder (7) while it is open, so an operator keys and reads the other station on one screen.
+
+| Part | Behavior | Why |
+|---|---|---|
+| Decoder | `cw_key_enter` wants the decoder (`ui_svc_cw_decode`), `cw_key_leave` lets it go, as the decode screen does. It pauses while the radio transmits (`CWDEC_BUSY`) and starts again once the carrier drops | The answer comes in the gap after the operator's turn |
+| Audio | A CW transmission on the tone path lets go of the decoder's receive audio before it keys (`radio_cwdec_release` in `cw_begin`) | The two share the path; the decoder takes it back on the next poll after the transmission |
+| Own keying | `cw_echo` (`core/radio/cw_echo.c`) turns the session's air key into text: a mark of two dots or more (Settings > CW > Speed) is a dah, a gap of two dots ends a character, of five a word; more than seven elements is `*`. The text goes into the decoder's (`radio_cwdec_sent`) while the decoder is wanted | Reading back the keying shows the operator's own fist. The keyer's elements are exact, so with the paddles it is what went out; a straight key is read against the Speed setting |
+| Text | A line for each turn: the operator's after "> ", what was heard as it came (`radio_cwdec_get`). The newest that fits is shown; whole words go from its start | No colors on a mono screen: the marker tells the two apart |
+
+### 10.6 Size, switches and tests
 
 | Item | Detail |
 |---|---|
@@ -346,4 +358,6 @@ Every element and the dot of space after it run whole. At the end of that space 
 | `morseTest` | The bug: three dits from a 250 ms hold at 20 wpm, a whole dit from a tap, the dah's length, a late edge, both paddles, a full queue. The other modes: one paddle's elements, a tap, a held squeeze (iambic alternating, ultimatic repeating the last pressed), a squeeze let go in the first element and a tap during a dah (B sends one more, A doesn't), a squeeze from rest, an unknown mode taken as B |
 | `keyassignTest` | `input_paddle_map` (OK and Back only, raw edges) and the paddles' edges reaching the radio task, a press not while PTT is locked out |
 | `radioCoreTest` | The keyer's edges at their own times on the timed tone (8.3). The bug's dits and dah on the air with their timing, the hang, a held paddle, PTT cutting it, the straight key and a message each locked out during the other, a DMR channel refused, live keying; iambic B's 180 ms dah from a 200 ms hold; Swap paddles |
-| `uiFlowTest` | The row, `cw-key`, Back staying, Up and # closing |
+| `uiFlowTest` | The row, `cw-key` with the decoder's text, # clearing it, Back staying, Up and Down closing (# closing without the decoder) |
+| `morseTest` (echo) | `cw_echo`: "CQ DE" with its word gap, long and short dahs, eight dits as `*` |
+| `radioCoreTestAprs` | The straight key's A in the decoder's text as "> A ", the decoder's audio let go while keying |
