@@ -26,6 +26,7 @@ static volatile uint8_t state;
 static volatile uint16_t hz;
 static volatile uint8_t wpm;
 static volatile uint32_t chars;
+static bool mine;	// the text's last line is the operator's own keying (radio_cwdec_sent)
 
 void radio_cwdec_want(bool on)
 {
@@ -82,8 +83,8 @@ static void text_end(void)
 	seq++;
 }
 
-// Decoded text in; the oldest third goes when it fills (radio task, between text_begin and text_end)
-static void append(const char *t, size_t n)
+// Text in; the oldest third goes when it fills (radio task, between text_begin and text_end)
+static void put(const char *t, size_t n)
 {
 	if (n == 0) {
 		return;
@@ -99,6 +100,42 @@ static void append(const char *t, size_t n)
 	}
 	memcpy(text + text_n, t, n);
 	text_n += n;
+}
+
+// A turn of the conversation starts a line: the operator's own keying after "> ", what was heard as it came
+static void turn(bool own)
+{
+	if (own == mine && text_n != 0) {
+		return;
+	}
+	if (text_n != 0) {
+		put("\n", 1);
+	}
+	if (own) {
+		put("> ", 2);
+	}
+	mine = own;
+}
+
+// Decoded text in
+static void append(const char *t, size_t n)
+{
+	if (n == 0) {
+		return;
+	}
+	turn(false);
+	put(t, n);
+}
+
+void radio_cwdec_sent(const char *t, size_t n)
+{
+	if (!want || n == 0) {
+		return;
+	}
+	text_begin();
+	turn(true);
+	put(t, n);
+	text_end();
 }
 
 static void stop(void)
@@ -138,6 +175,7 @@ bool radio_cwdec_service(const radio_cwdec_in_t *in, uint32_t now_ms)
 		reset_req = clear_req = false;
 		text_begin();
 		text_n = 0;
+		mine = false;
 		text_end();
 		changed = true;
 	}

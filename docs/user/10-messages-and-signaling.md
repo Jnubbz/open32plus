@@ -132,8 +132,12 @@ How they key is **Settings > CW > Paddle**:
 
 The first press turns the transmitter on. Your keying goes out as you key it, and the transmitter goes off once you
 have let go for **Key hang**, as with a straight key (below). The screen shows **Ready**, or **On air** while it
-transmits. Because Back is a paddle here, close the screen with **Up**, **Down** or **#**. PTT stops the keying at
-once. It works only on an FM channel. The details are in [morse.md](../spec/morse.md) 10.
+transmits. Because Back is a paddle here, close the screen with **Up** or **Down**. PTT stops the keying at once. It
+works only on an FM channel. The details are in [morse.md](../spec/morse.md) 10.
+
+The screen decodes as well, so you can key and read on one screen. What the other station sends appears above the
+status row, as on **Decode CW**, and your own keying appears on its own line after **>**, so you can check your fist.
+The decoder pauses while you transmit and listens again once you let go. **#** clears the text.
 
 ### Sending CW with a key
 

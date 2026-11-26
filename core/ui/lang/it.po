@@ -1833,6 +1833,11 @@ msgid "OK: dits  Back: dah"
 msgstr "OK: punti  Indietro: linea"
 
 #: core/ui/ui_menus.c
+msgctxt "CW_KEY_HINT_DECODE"
+msgid "Up/Down close  # clear"
+msgstr "Su/Giù chiudi  # cancella"
+
+#: core/ui/ui_menus.c
 msgctxt "CW_KEY_HINT"
 msgid "Up/Down close"
 msgstr "Su/Giù chiudi"
