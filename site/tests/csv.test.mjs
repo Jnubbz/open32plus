@@ -180,7 +180,7 @@ test("a CSV TX timeout rounds up to the 15 s steps the record stores (#924)", ()
 	assert.deepEqual(decode(img).channels.map((c) => c.tot), [105, 3825, 15, 0]);
 });
 
-// The stock CPS's CSV export (a channel and a zone file, as the DM-32UV's CPS writes them): its own column names
+// A stock CPS's CSV export (channel and zone files as an original manufacturer's CPS writes them): its own column names
 // ("RX Frequency[MHz]", "Channel Type", "Time Slot", "Forbid TX", "CTC/DCS Decode") and values ("Digital", "Slot 2",
 // "12.5KHz", "None", a DMR ID by name), contacts and RX group lists named "... Call" and "Contact Members"
 test("import: the stock CPS's CSV files", () => {
