@@ -233,7 +233,10 @@ added, such as `codeplug-2026-11-10-2215.yaml`, so saves never overwrite each ot
 saving it again replaces the date and time.
 
 CSV files have a header row with the column names, and refer to other records by name (a channel's TX contact, a
-zone's channels). Save a table first to see the columns. An import matches rows to existing records by number, then by
+zone's channels). Save a table first to see the columns. The CSV files a radio's original CPS exports open too: their
+column names ("RX Frequency[MHz]", "Channel Type", "Time Slot", "Forbid TX", "CTC/DCS Decode") and values ("Digital",
+"Slot 2", "12.5KHz", "None", "Group Call") are understood, and their columns the editor has no place for are listed
+after the import. Open them in this order, so each finds what it refers to: contacts, RX group lists, channels, zones. An import matches rows to existing records by number, then by
 name. A file can hold only some columns; the others keep their values. Records missing from the file are removed.
 Values the editor can't take are listed by row and column after the import. A channel's TX timeout rounds up to the
 next 15 s step, as the radio stores it (100 s becomes 105 s).

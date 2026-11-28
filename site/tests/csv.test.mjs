@@ -179,3 +179,42 @@ test("a CSV TX timeout rounds up to the 15 s steps the record stores (#924)", ()
 	assert.equal(img.bytes[channelAddr(1) + 0x1B], 7);
 	assert.deepEqual(decode(img).channels.map((c) => c.tot), [105, 3825, 15, 0]);
 });
+
+// A stock CPS's CSV export (channel and zone files as an original manufacturer's CPS writes them): its own column names
+// ("RX Frequency[MHz]", "Channel Type", "Time Slot", "Forbid TX", "CTC/DCS Decode") and values ("Digital", "Slot 2",
+// "12.5KHz", "None", a DMR ID by name), contacts and RX group lists named "... Call" and "Contact Members"
+test("import: the stock CPS's CSV files", () => {
+	const m = empty();
+	const contacts = "No.,Contact Name,Call Type,Call ID\r\n1,FL Statewide,Group Call,3112\r\n2,Parrot,Private Call,9990\r\n";
+	const lists = "No.,Group List Name,Contact Members\r\n1,Florida,FL Statewide|Parrot\r\n";
+	const channels = "No.,Channel Name,Channel Type,RX Frequency[MHz],TX Frequency[MHz],Power,Band Width,TX Contact,RX Group List," +
+		"Color Code,Time Slot,Forbid TX,DMR ID,CTC/DCS Decode,CTC/DCS Encode,Encryption\r\n" +
+		"1,W4MCO FL State,Digital,443.16250,448.16250,High,12.5KHz,FL Statewide,Florida,11,Slot 2,0,KN0BLE,None,None,0\r\n" +
+		"2,K4VDO 442.100,Analog,442.10000,447.10000,High,25KHz,None,None,0,Slot 1,0,KN0BLE,D423N,D423N,0\r\n" +
+		"3,GMRS 01 462.5625,Analog,462.56250,462.56250,Low,25KHz,None,None,0,Slot 1,1,KN0BLE,None,103.5,0\r\n";
+	const zones = "No.,Zone Name,Channel Members\r\n1,Orlando,W4MCO FL State|K4VDO 442.100\r\n";
+	for (const [text, table] of [[contacts, "contacts"], [lists, "rxLists"], [channels, "channels"], [zones, "zones"]]) {
+		assert.equal(detect(text), table);
+		const r = importTable(m, text);
+		assert.deepEqual(r.problems, [], table);
+	}
+	assert.deepEqual(m.contacts.map((x) => [x.name, x.id, x.type]), [["FL Statewide", 3112, "group"], ["Parrot", 9990, "private"]]);
+	assert.deepEqual(m.rxLists[0].contacts.map((x) => x.name), ["FL Statewide", "Parrot"]);
+	const [dmr, fm, gmrs] = m.channels;
+	assert.equal(dmr.mode, "dmr");
+	assert.equal(dmr.rxHz, 443162500);
+	assert.equal(dmr.txHz, 448162500);
+	assert.equal(dmr.timeslot, 2);
+	assert.equal(dmr.colorCode, 11);
+	assert.equal(dmr.bw, 12.5);
+	assert.equal(dmr.contact.name, "FL Statewide");
+	assert.equal(dmr.rxList.name, "Florida");
+	assert.equal(dmr.dmrId, 0);	// "KN0BLE": the radio's own ID
+	assert.equal(fm.mode, "fm");
+	assert.equal(fm.contact, null);
+	assert.equal(fm.rxTone, "D423N");
+	assert.equal(fm.bw, 25);
+	assert.equal(gmrs.rxOnly, true);
+	assert.equal(gmrs.txTone, "103.5");
+	assert.deepEqual(m.zones[0].channels.map((x) => x.name), ["W4MCO FL State", "K4VDO 442.100"]);
+});

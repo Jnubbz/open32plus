@@ -126,9 +126,10 @@ const asTone = (s) => {
 	return v;
 };
 
+// A channel's own DMR ID; blank, 0 or a name (the stock CPS picks one of the radio's IDs by name there) is the radio's
 const asId = (s) => {
 	s = s.trim();
-	if (s === "" || s === "0") return 0;
+	if (s === "" || s === "0" || !/^\d+$/.test(s)) return 0;
 	const n = Number(s);
 	if (!Number.isInteger(n) || n < 1 || n > 0xFFFFFF) throw new Bad("id_range");
 	return n;
@@ -146,6 +147,13 @@ const asWord = (words, dflt, lo, hi) => (s) => {
 const POWER = { ...POWER_NAMES };
 const powerText = (n) => POWER_NAMES[n] || String(n);
 const MODES = { fm: "FM", dmr: "DMR" };
+// The stock CPS's Analog and Digital too
+const asMode = (s) => {
+	const v = s.trim().toLowerCase();
+	if (v === "analog" || v === "analogue") return "fm";
+	if (v === "digital") return "dmr";
+	return asWord(MODES, "fm")(s);
+};
 const TYPES = Object.fromEntries(CALL_TYPES.map((k) => [k, k[0].toUpperCase() + k.slice(1)]));
 
 // --- References by name ---
@@ -159,9 +167,10 @@ function refText(x, list) {
 	return plain || !x.number ? x.name : `#${x.number}`;
 }
 
+// "None" (how the stock CPS writes an empty reference) is none, unless a record has that name
 function findRef(text, list) {
 	const s = text.trim();
-	if (!s) return null;
+	if (!s || (/^none$/i.test(s) && !list.some((x) => x.name.toLowerCase() === "none"))) return null;
 	const num = /^#(\d+)$/.exec(s);
 	if (num) {
 		const n = Number(num[1]);
@@ -230,7 +239,8 @@ export const TABLES = {
 			NUMBER(LIMITS.contacts),
 			c("Name", "name", asName(LIMITS.name), undefined, ["Contact Name", "Contact"]),
 			c("ID", "id", asInt(1, 0xFFFFFF), undefined, ["DMR ID", "Call ID", "Radio ID", "TG", "Talkgroup"]),
-			c("Call Type", "type", asWord(TYPES, "group"), (r) => TYPES[r.type], ["Type"]),
+			// "Group Call", "Private Call" and "All Call" as the stock CPS writes them, too
+			c("Call Type", "type", (s) => asWord(TYPES, "group")(s.replace(/\s*call\s*$/i, "")), (r) => TYPES[r.type], ["Type"]),
 			c("Timeslot", "timeslot", asInt(0, 2, 0), (r) => r.timeslot || "", ["TS", "Timeslot Override"]),
 		],
 		create: () => newContact(),
@@ -240,8 +250,8 @@ export const TABLES = {
 		file: "rx-group-lists.csv",
 		columns: [
 			NUMBER(LIMITS.rxLists),
-			c("Name", "name", asName(LIMITS.name), undefined, ["Group List", "RX Group List"]),
-			{ header: "Contacts", aliases: ["Members", "Talkgroups"], key: "contacts", get: (r, m) => refsText(r.contacts, m.contacts),
+			c("Name", "name", asName(LIMITS.name), undefined, ["Group List", "RX Group List", "Group List Name", "RX Group List Name"]),
+			{ header: "Contacts", aliases: ["Members", "Talkgroups", "Contact Members", "Group Members"], key: "contacts", get: (r, m) => refsText(r.contacts, m.contacts),
 				set: (r, s, m, bad) => {
 					r.contacts = findRefs(s, m.contacts, LIMITS.rxListContacts, bad);
 				} },
@@ -294,7 +304,7 @@ export const TABLES = {
 		columns: [
 			NUMBER(LIMITS.channels),
 			c("Name", "name", asName(LIMITS.name), undefined, ["Channel Name", "Channel"]),
-			c("Mode", "mode", asWord(MODES, "fm"), (r) => MODES[r.mode], ["Channel Mode", "Channel Type", "Type"]),
+			c("Mode", "mode", asMode, (r) => MODES[r.mode], ["Channel Mode", "Channel Type", "Type"]),
 			c("RX Frequency (MHz)", "rxHz", asFreq(), (r) => mhz(r.rxHz), ["RX Frequency", "RX Freq", "Receive Frequency", "RX"]),
 			c("TX Frequency (MHz)", "txHz", asFreq(), (r) => mhz(r.txHz), ["TX Frequency", "TX Freq", "Transmit Frequency", "TX"]),
 			c("Power", "power", asWord(POWER, 0, 0, 10), (r) => powerText(r.power), ["TX Power"]),
@@ -306,16 +316,16 @@ export const TABLES = {
 				if (v === "25") return 25;
 				throw new Bad("bad_value", { value: s.trim(), allowed: "12.5, 25" });
 			}, undefined, ["Bandwidth", "BW"]),
-			c("RX Tone", "rxTone", asTone, undefined, ["RX CTCSS/DCS", "Decode", "RX CTCSS"]),
-			c("TX Tone", "txTone", asTone, undefined, ["TX CTCSS/DCS", "Encode", "TX CTCSS"]),
+			c("RX Tone", "rxTone", asTone, undefined, ["RX CTCSS/DCS", "Decode", "RX CTCSS", "CTC/DCS Decode"]),
+			c("TX Tone", "txTone", asTone, undefined, ["TX CTCSS/DCS", "Encode", "TX CTCSS", "CTC/DCS Encode"]),
 			c("Squelch", "squelch", asInt(0, 21, 0)),
 			c("Color Code", "colorCode", asInt(0, 15, 1), undefined, ["CC", "Colour Code"]),
-			c("Timeslot", "timeslot", asInt(1, 2, 1), undefined, ["TS", "Time Slot", "Slot"]),
+			c("Timeslot", "timeslot", (s) => asInt(1, 2, 1)(s.replace(/^\s*(slot|ts)\s*/i, "")), undefined, ["TS", "Time Slot", "Slot"]),
 			ref("TX Contact", "contact", "contacts", ["Contact"]),
 			ref("RX Group List", "rxList", "rxLists", ["Group List", "RX List"]),
 			ref("APRS", "aprs", "aprs", ["APRS Configuration"]),
 			c("DMR ID", "dmrId", asId, (r) => r.dmrId || "", ["Channel DMR ID"]),
-			c("RX Only", "rxOnly", asBool, (r) => yesNo(r.rxOnly)),
+			c("RX Only", "rxOnly", asBool, (r) => yesNo(r.rxOnly), ["Forbid TX", "TX Prohibit"]),
 			c("All Skip", "allSkip", asBool, (r) => yesNo(r.allSkip), ["Scan Skip"]),
 			c("Zone Skip", "zoneSkip", asBool, (r) => yesNo(r.zoneSkip)),
 			c("VOX", "vox", asBool, (r) => yesNo(r.vox)),
@@ -380,7 +390,8 @@ export function exportTable(m, table) {
 
 // --- Import ---
 
-const norm = (s) => String(s).toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9#]/g, "");
+// Units in brackets ("RX Frequency (MHz)", the stock CPS's "RX Frequency[MHz]") and punctuation don't count
+const norm = (s) => String(s).toLowerCase().replace(/\(.*?\)|\[.*?\]/g, "").replace(/[^a-z0-9#]/g, "");
 
 // The columns a header row names: [{column, index}], plus the headers not recognized
 function mapHeader(spec, head) {
