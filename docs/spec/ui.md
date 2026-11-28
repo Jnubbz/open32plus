@@ -342,8 +342,8 @@ opens from:
 - Contacts: New contact, the first row (before the contacts, so 1024 of them never push it out of reach, and a typed
   filter, which keeps the first 128 matches, keeps it when it matches). The editor starts empty, on a talkgroup. With the editor Contacts is never empty; a filter that matches nothing says "No contact
   matches".
-- Find: "Create contact 3100", the last row for a typed number no contact has as its ID. Up to 6 digits start it as a
-  talkgroup, 7 and more (a DMR ID) as a person.
+- Find: "Create contact 3100", for a typed number no contact has as its ID (after it only "Message 3100", and a
+  trunked system's phone call). Up to 6 digits start it as a talkgroup, 7 and more (a DMR ID) as a person.
 - Actions: Save as contact (item 7 for a person, item 4 for a talkgroup), for a target that isn't a contact. Its ID,
   type and name come with it.
 

@@ -1383,6 +1383,11 @@ msgid "Private call "
 msgstr "Llamada privada "
 
 #: core/ui/ui_find.c
+msgctxt "FIND_ROW_MESSAGE"
+msgid "Message "
+msgstr "Mensaje a "
+
+#: core/ui/ui_find.c
 msgctxt "FIND_ROW_TUNE_VFO_TO"
 msgid "Tune VFO to "
 msgstr "VFO a "
@@ -1411,6 +1416,26 @@ msgstr "Sin acciones para esto"
 msgctxt "FIND_HINT"
 msgid "PTT talk  OK open  # more"
 msgstr "PTT hablar  OK abrir  # más"
+
+#: core/ui/ui_find.c
+msgctxt "FIND_HINT_WRITE"
+msgid "OK write a text"
+msgstr "OK escribir texto"
+
+#: core/ui/ui_find.c
+msgctxt "FIND_HINT_TALK"
+msgid "OK talk  # actions"
+msgstr "OK hablar  # acciones"
+
+#: core/ui/ui_find.c
+msgctxt "FIND_HINT_CALL"
+msgid "OK call"
+msgstr "OK llamar"
+
+#: core/ui/ui_find.c
+msgctxt "FIND_HINT_OPEN"
+msgid "OK open"
+msgstr "OK abrir"
 
 #: core/ui/ui_gps.c
 msgctxt "GPS_TITLE_STATUS"
@@ -1916,6 +1941,11 @@ msgstr "Enviar CW"
 msgctxt "MSG_ROW_DECODE_CW"
 msgid "Decode CW"
 msgstr "Decodificar CW"
+
+#: core/ui/ui_menus.c
+msgctxt "MSG_ROW_NEW_MESSAGE"
+msgid "New message..."
+msgstr "Nuevo mensaje..."
 
 #: core/ui/ui_menus.c
 msgctxt "MSG_ROW_NEW_APRS"

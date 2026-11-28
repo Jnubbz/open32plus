@@ -1004,8 +1004,10 @@ static const flow_t flows[] = {
 	{ "T a poll with no answer", "t3 dlpos:3", "t3state:pollfail", "toast=Poll:_no_short_data", 0, false },
 #if CONFIG_DMR_TRUNK_GW
 	// Telephone calls through the PSTN gateway (dmr-trunking.md 7.6): a typed number on a trunked system, last in Find
-	{ "T Find offers a phone call on a trunked system", "t3 dlpos:3", "5 5 5 1 2 3 4",
-	  "screen=find shows=Phone_call_5551234 dial=", 7, false },	// typed, not chosen: the dial stays
+	// Up focuses it, last: on a small screen the rows above (Message among them) fill the list
+	{ "T Find offers a phone call on a trunked system", "t3 dlpos:3", "5 5 5 1 2 3 4 up",
+	  "screen=find shows=Phone_call_5551234", 8, false },
+	{ "T typing leaves the dial alone", "t3 dlpos:3", "5 5 5 1 2 3 4", "screen=find dial=", 7, false },	// typed, not chosen
 	{ "T no phone call on a conventional channel", "", "5 5 5 1 2 3 4", "screen=find hides=Phone_call dial=", 7, false },
 	{ "T PTT on the phone call row calls the gateway", "t3 dlpos:3 5 5 5 1 2 3 4", "up",
 	  "focus=Phone_call focusid=16776896 dial=5551234", 1, false },
@@ -1141,6 +1143,16 @@ static const flow_t flows[] = {
 	{ "C Settings > CW has the sidetone", "ok 7 up up up ok", "", "shows=Sidetone", 0, false },
 #endif
 	{ "A new APRS message opens its composer", "ok 2", "ok", "screen=compose shows=To_callsign", 1, false },
+#if CONFIG_DMR_SMS
+	// A text without # and the actions: Find's Message row for a typed number, and Messages > New message, which
+	// picks who in Find (contacts and the number) and opens the composer
+	{ "C Find offers a text to a typed number", "", "1 2 3 4 5 6 7 up", "screen=find focus=Message_1234567", 8, false },
+	{ "C the text row opens the composer", "1 2 3 4 5 6 7", "up ok", "screen=compose shows=1234567", 2, false },
+	{ "C Messages has New message", "ok 2", "down", "focus=New_message...", 1, false },
+	{ "C New message picks who in Find", "ok 2 down", "ok", "screen=find hides=Talk_to", 1, false },
+	{ "C a typed ID there opens the composer", "ok 2 down ok", "1 2 3 4 5 6 7 ok", "screen=compose shows=1234567", 8,
+	  false },
+#endif
 	{ "A new APRS message needs our callsign", "aprs:nocall ok 2", "", "hides=New_APRS_message", 0, false },
 	{ "A received APRS message opens in Messages", "aprs:message ok 2", "ok", "screen=message shows=Hello_APRS", 1, false },
 	{ "A received APRS message replies over APRS", "aprs:message ok 2 ok", "ok", "sent=1 aprs_to=Q4WAB-9 text=OK", 1, false },

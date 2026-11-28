@@ -224,6 +224,8 @@ bool ui_t9_match(const char *text, const char *keys);
 // Find: rerun the search for ui_st query; the screen's rows
 void ui_find_run(void);
 void ui_find_set(const char *q);
+// Messages > New message: Find for who a text goes to (contacts and a typed ID), OK opens the composer
+void ui_find_message(void);
 const char *ui_find_query(void);
 
 // Recent (ui_app.c): newest first
