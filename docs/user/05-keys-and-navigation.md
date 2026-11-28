@@ -88,12 +88,14 @@ this order:
 4. Contacts whose DMR ID starts with the number, from three digits on.
 5. The number itself, as a talkgroup ("Talk to TG 3100", "not saved") and as a private call ("Private call 3100").
 6. "Create contact 3100" when no contact has that ID. **OK** opens New Contact ([Contacts](09-dmr.md#contacts)).
+7. "Message 3100" where the radio sends text messages. **OK** opens the message composer for that ID
+   ([Sending a message](10-messages-and-signaling.md#sending-a-message)).
 
 Then:
 
 | Key | Does |
 |---|---|
-| **OK** | Go to the channel or zone, tune the VFO, open the place or setting, talk to the talkgroup or person for now, or create the contact |
+| **OK** | Go to the channel or zone, tune the VFO, open the place or setting, talk to the talkgroup or person for now, create the contact, or write a text. The bottom line says which for the focused row |
 | **PTT** | Talk to the focused talkgroup or person once |
 | **#** | Actions for the focused talkgroup or person |
 | **Back** | Delete the last digit. With one digit left, leave Find |

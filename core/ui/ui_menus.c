@@ -1076,10 +1076,14 @@ static bool aprs_new_available(void)
 #endif
 }
 
-// The rows after the inboxes: New APRS message, then Send CW and Decode CW
+// New message (a DMR text): who to is picked in Find, by contact or typed ID (ui_find_message)
+static bool dmr_new_available(void) { return CONFIG_DMR_SMS && (feats() & UI_FEAT_SMS) != 0; }
+
+// The rows after the inboxes: New APRS message, New message, then Send CW and Decode CW
 static uint16_t msgs_inbox_rows(void)
 {
-	return ui_svc_msg_count() + ui_svc_aprs_msg_count() + (aprs_new_available() ? 1u : 0u);
+	return ui_svc_msg_count() + ui_svc_aprs_msg_count() + (dmr_new_available() ? 1u : 0u) +
+	       (aprs_new_available() ? 1u : 0u);
 }
 
 static uint16_t msgs_count(void)
@@ -1128,7 +1132,12 @@ static void msgs_item(uint16_t i, ui_item_t *it)
 	}
 	uint16_t dmr_count = ui_svc_msg_count();
 	uint16_t aprs_count = ui_svc_aprs_msg_count();
-	if (aprs_new_available() && i == dmr_count + aprs_count) {
+	uint16_t aprs_new = aprs_new_available() ? 1u : 0u;
+	if (dmr_new_available() && i == dmr_count + aprs_count + aprs_new) {
+		str_copy(it->label, sizeof it->label, TR(MSG_ROW_NEW_MESSAGE, "New message..."));
+		return;
+	}
+	if (aprs_new && i == dmr_count + aprs_count) {
 		str_copy(it->label, sizeof it->label, TR(MSG_ROW_NEW_APRS, "New APRS message"));
 		return;
 	}
@@ -1185,7 +1194,10 @@ static void msgs_select(uint16_t i, bool hold)
 		return;
 	}
 #endif
-	if (aprs_new_available() && i == ui_svc_msg_count() + ui_svc_aprs_msg_count())
+	uint16_t aprs_new = aprs_new_available() ? 1u : 0u;
+	if (dmr_new_available() && i == ui_svc_msg_count() + ui_svc_aprs_msg_count() + aprs_new)
+		ui_find_message();
+	else if (aprs_new && i == ui_svc_msg_count() + ui_svc_aprs_msg_count())
 		ui_aprs_compose("");
 	else {
 		bool aprs;

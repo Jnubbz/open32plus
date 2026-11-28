@@ -47,9 +47,17 @@ The radio keeps DMR and APRS messages in memory. They are lost when the radio tu
 
 ## Sending a message
 
-1. Open the actions for the person or talkgroup. Press **#** on Home for the last caller, or **#** on a contact.
-2. Press **3** (Message).
-3. Pick a preset ("OK", "On my way", "Call me" or "Can't talk now"), or choose **Write...** to type your own text.
+Three ways to the composer:
+
+- **To any DMR ID:** on Home, type the ID. Find lists "Message 1234567": focus it and press **OK**.
+- **From Messages:** **OK**, **2**, then **New message...**. Pick a contact or talkgroup (the first few are listed;
+  type letters of the name or digits of the ID to find others), or type an ID and pick "Message ...". **OK** opens
+  the composer.
+- **From the actions:** press **#** on Home for the last caller, or **#** on a contact, then **3** (Message).
+
+Then:
+
+1. Pick a preset ("OK", "On my way", "Call me" or "Can't talk now"), or choose **Write...** to type your own text.
    Press **OK** to send. Presets are sent in the radio's language (Settings > Display > Language).
 
 <img src="../ux/screens/160x120i5/compose.png" width="200" alt="The message composer">

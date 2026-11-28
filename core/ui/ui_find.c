@@ -49,8 +49,8 @@ static const struct {
 };
 #define PLACES_N	((uint8_t)(sizeof places / sizeof places[0]))
 
-typedef enum { FR_CHANNEL, FR_ZONE, FR_CONTACT, FR_TG, FR_PRIVATE, FR_SETTING, FR_PLACE, FR_FREQ, FR_NEW_CONTACT, FR_PHONE }
-	find_kind_t;
+typedef enum { FR_CHANNEL, FR_ZONE, FR_CONTACT, FR_TG, FR_PRIVATE, FR_SETTING, FR_PLACE, FR_FREQ, FR_NEW_CONTACT, FR_PHONE,
+	FR_MESSAGE } find_kind_t;
 
 typedef struct {
 	uint8_t kind;
@@ -114,6 +114,20 @@ bool ui_t9_match(const char *text, const char *keys)
 }
 
 const char *ui_find_query(void) { return query; }
+
+// Messages > New message opens Find to pick who a text goes to (arg FIND_ARG_MESSAGE): only contacts and the typed
+// number, and OK opens the composer for it instead of talking to it
+#define FIND_ARG_MESSAGE	1u
+static bool for_message(void) { return ui_frame()->arg == FIND_ARG_MESSAGE; }
+
+// A text from Find: as SCR_ACTIONS's Message does, with the target the composer reads
+static bool sms_built(void) { return CONFIG_DMR_SMS && (ui_svc_features() & UI_FEAT_SMS) != 0; }
+
+void ui_find_message(void)
+{
+	ui_push(SCR_FIND, FIND_ARG_MESSAGE);
+	ui_find_set("");
+}
 
 static bool add(uint8_t kind, uint32_t ref)
 {
@@ -187,8 +201,20 @@ void ui_find_run(void)
 	size_t len = strlen(query);
 	uint32_t num = query_number();
 	n_results = 0;
-	if (len == 0)
+	bool msg = for_message();
+	if (len == 0 && !msg)
 		return;
+#if CONFIG_DMR
+	if (msg) {
+		// Who to text: the contacts by name or ID (the first few before a key is typed), then the number itself
+		contact_scan_t cs = { .num = num, .len = len, .number = num >= 1 && num <= 0xFFFFFEu };
+		codeplug_contacts_each(contact_match, &cs);
+		priv_index = cs.priv;
+		if (cs.number)
+			add(FR_MESSAGE, num);
+		return;
+	}
+#endif
 
 	bool have_zone = codeplug_zone(v->zone_index, &zone);
 	// 1. Channel by position in the zone
@@ -252,6 +278,10 @@ void ui_find_run(void)
 		add(FR_PRIVATE, num);
 		if (CONFIG_CONTACT_EDIT && !known)
 			add(FR_NEW_CONTACT, num);
+		// The number as a text: straight to the composer, not through # and the actions. After the rows that were
+		// there before it, so they keep their places; a phone call on a trunked system stays last
+		if (sms_built())
+			add(FR_MESSAGE, num);
 	}
 #endif
 #if CONFIG_DMR_TRUNK_GW
@@ -311,7 +341,8 @@ static bool find_target(uint16_t i, ui_target_t *t)
 		ui_svc_t3_dial(query);
 		return true;
 #endif
-	case FR_PRIVATE: {
+	case FR_PRIVATE:
+	case FR_MESSAGE: {
 		t->id = r->ref;
 #if CONFIG_DMR
 		// The contact the search found (no scan here: the row is drawn every frame)
@@ -384,6 +415,14 @@ static void find_item(uint16_t i, ui_item_t *it)
 			sb_str(&b, t.name);
 		}
 		break;
+	case FR_MESSAGE:
+		sb_str(&b, TR(FIND_ROW_MESSAGE, "Message "));
+		sb_u32(&b, r->ref, 1);
+		if (find_target(i, &t) && t.name[0]) {
+			sb_chr(&b, ' ');
+			sb_str(&b, t.name);
+		}
+		break;
 	case FR_FREQ:
 		sb_str(&b, TR(FIND_ROW_TUNE_VFO_TO, "Tune VFO to "));
 		sb_freq(&b, r->ref);
@@ -446,7 +485,19 @@ static void find_select(uint16_t i, bool hold)
 		ui_new_contact(&t);
 		break;
 #endif
+	case FR_MESSAGE:
+		if (find_target(i, &t)) {
+			ui_target = t;	// the composer's "To" (SCR_COMPOSE), as the actions' Message sets it
+			ui_push(SCR_COMPOSE, 0);
+		}
+		break;
 	case FR_CONTACT:
+		if (for_message() && find_target(i, &t)) {
+			ui_target = t;
+			ui_push(SCR_COMPOSE, 0);
+			break;
+		}
+		/* fall through */
 	case FR_TG:
 	case FR_PRIVATE:
 		if (find_target(i, &t))
@@ -502,9 +553,33 @@ static bool find_key(const input_event_t *ev)
 	return false;
 }
 
+// The hint says what OK does on the focused row: talk to a contact, number or talkgroup (with # for its actions),
+// write a text, or open a channel, zone, setting or place
+static const char *find_hint(void)
+{
+	uint16_t i = ui_frame()->focus;
+	if (i >= n_results)
+		return TR(FIND_HINT, "PTT talk  OK open  # more");
+	switch (results[i].kind) {
+	case FR_MESSAGE:
+		return TR(FIND_HINT_WRITE, "OK write a text");
+	case FR_CONTACT:
+		if (for_message())
+			return TR(FIND_HINT_WRITE, "OK write a text");
+		/* fall through */
+	case FR_TG:
+	case FR_PRIVATE:
+		return TR(FIND_HINT_TALK, "OK talk  # actions");
+	case FR_PHONE:
+		return TR(FIND_HINT_CALL, "OK call");
+	default:
+		return TR(FIND_HINT_OPEN, "OK open");
+	}
+}
+
 const ui_scr_def_t ui_find_screen = {
-	.name = "find", .flags = SF_LIST | SF_FIND | SF_FIELD,
-	.hint = TRN(FIND_HINT, "PTT talk  OK open  # more"),
+	.name = "find", .flags = SF_LIST | SF_FIND | SF_FIELD | SF_HINT_FN,
+	.hint_fn = find_hint,
 	.empty = TRN(LIST_EMPTY_NO_MATCH, "No match: Back deletes a key"),
 	.count = find_count, .item = find_item, .select = find_select, .context = find_context, .target = find_target,
 	.key = find_key,
